@@ -26,10 +26,12 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.ParseException;
 import java.time.*;
 import java.time.temporal.*;
 import java.util.Calendar;
 import java.util.Locale;
+import java.util.Date;
 //
 //import okhttp3.OkHttpClient;
 //import okhttp3.Request;
@@ -47,6 +49,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private String name;
     private Socket socket;
     private Calendar cal = Calendar.getInstance(Locale.ENGLISH);
+    private Date currentTime = Calendar.getInstance().getTime();
 //    private WebSocket webSocket;
 //    private String SERVER_PATH = "ws://echo.websocket.org";
     private EditText messageEdit;
@@ -82,8 +85,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         name = getIntent().getStringExtra("name");
         {
             Log.d(TAG, "Before socket connection");
-            socket = IO.socket(URI.create("http://192.168.1.2:3333"));
-            mSocket = IO.socket(URI.create("http://192.168.1.2:3333/chat"));
+            socket = IO.socket(URI.create("http://192.168.10.112:3333"));
+            mSocket = IO.socket(URI.create("http://192.168.10.112:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
@@ -96,7 +99,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 Log.d(TAG, "SOCKET IS CONNECTEd");
                 Toast.makeText(ChatActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
             }
-
+            mSocket.on("receive_message",onNewMessage);
         };
 
         initializeView();
@@ -131,7 +134,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                         "Socket Connection Successful!",
                         Toast.LENGTH_SHORT).show();
 //                    initializeView();
-                    mSocket.on("receive_message",onNewMessage);
+//                    mSocket.on("receive_message",onNewMessage);
 
 
                 }
@@ -267,34 +270,55 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        String s = args[0].toString();
 
-                        JSONObject data = (JSONObject) args[0];
-//                        Log.v(TAG,ge);
-                        String username;
-                        String message;
-                        String time;
-
-
-                        try{
-                            username = data.getString("username");
-                            message = data.getString("message");
-                            time = data.getString("time");
-
-                        }catch(JSONException e){
-                            return;
-                        }
-
-                        JSONObject jsonObject = new JSONObject();
                         try {
-                            jsonObject.put("name", "Roy");
+                            JSONObject json = new JSONObject(s);
+                            String username = json.getString("username");
+                            String message = json.getString("message");
+                            String time = json.getString("time");
+                            Log.v(TAG,username);
+                            Log.v(TAG,time);
+                            Log.v(TAG,message);
+
+                            JSONObject jsonObject = new JSONObject();
+                        try {
+                            jsonObject.put("name", username);
                             jsonObject.put("message", message);
+//                            jsonObject.put("time", time);
                             jsonObject.put("isSent", false);
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
-                        messageAdapter.addItem(data);
+
+                            messageAdapter.addItem(jsonObject);
+
+                            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+
+
+
+//                        try{
+//                            username = data.getString("username");
+//                            message = data.getString("message");
+//                            time = data.getString("time");
 //
-                    recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+//                        }catch(JSONException e){
+//                            return;
+//                        }
+
+//                        JSONObject jsonObject = new JSONObject();
+//                        try {
+//                            jsonObject.put("name", "Roy");
+//                            jsonObject.put("message", message);
+//                            jsonObject.put("isSent", false);
+//                        } catch (JSONException e) {
+//                            e.printStackTrace();
+//                        }
+
 //
                     }
                 });
@@ -335,7 +359,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //                JSONObject jsonObject = new JSONObject();
                 jsonObject.put("username", name);
                 jsonObject.put("message", messageEdit.getText().toString());
-                jsonObject.put("time","11:00" );
+                jsonObject.put("time",currentTime );
                 jsonObject.put("isSent", true);
                 messageAdapter.addItem(jsonObject);
                 messageEdit.setText("");
