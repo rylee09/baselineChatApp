@@ -26,6 +26,10 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.*;
+import java.time.temporal.*;
+import java.util.Calendar;
+import java.util.Locale;
 //
 //import okhttp3.OkHttpClient;
 //import okhttp3.Request;
@@ -42,7 +46,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private static final String TAG = "ChatActivity";
     private String name;
     private Socket socket;
-
+    private Calendar cal = Calendar.getInstance(Locale.ENGLISH);
 //    private WebSocket webSocket;
 //    private String SERVER_PATH = "ws://echo.websocket.org";
     private EditText messageEdit;
@@ -77,14 +81,22 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         setContentView(R.layout.activity_chat);
         name = getIntent().getStringExtra("name");
         {
-
-            socket = IO.socket(URI.create("https://192.168.1.2:3333"));
-            mSocket = IO.socket(URI.create("https://192.168.1.2:3333/chat"));
+            Log.d(TAG, "Before socket connection");
+            socket = IO.socket(URI.create("http://192.168.1.2:3333"));
+            mSocket = IO.socket(URI.create("http://192.168.1.2:3333/chat"));
             mSocket.connect();
+
+            if (mSocket.connected()){
+                Log.d(TAG, "connected");
+             } else {
+            Log.d(TAG, "Not connected");
+        }
+            mSocket.emit("join_room","123");
             if (mSocket.connected()) {
+                Log.d(TAG, "SOCKET IS CONNECTEd");
                 Toast.makeText(ChatActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
             }
-            mSocket.emit("join_room","123");
+
         };
 
         initializeView();
@@ -112,7 +124,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //            }
 //        });
 
-            mSocket.on(mSocket.EVENT_CONNECT, new Emitter.Listener() {
+            mSocket.on("connection", new Emitter.Listener() {
                 @Override
                 public void call(final Object... args) {
                     Toast.makeText(ChatActivity.this,
@@ -310,17 +322,20 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         // ON CLICK EMITTER
         sendBtn.setOnClickListener(v -> {
 
+
             JSONObject jsonObject = new JSONObject();
             try {
+
+
 //                String message = messageEdit.getText().toString().trim();
 
 //                if (TextUtils.isEmpty(message)) {
 //                    return;
 //                }
 //                JSONObject jsonObject = new JSONObject();
-                jsonObject.put("name", name);
+                jsonObject.put("username", name);
                 jsonObject.put("message", messageEdit.getText().toString());
-//                jsonObject.put("time", "10:00");
+                jsonObject.put("time","11:00" );
                 jsonObject.put("isSent", true);
                 messageAdapter.addItem(jsonObject);
                 messageEdit.setText("");
