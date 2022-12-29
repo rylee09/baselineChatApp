@@ -27,27 +27,27 @@
         android:id="@+id/messageEdit" />
 
     <TextView
+        android:id="@+id/sendBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Send"
         android:padding="10dp"
-        android:visibility="visible"
+        android:visibility="invisible"
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:layout_marginBottom="16dp"
-        android:id="@+id/sendBtn"
         android:textColor="@color/colorPrimary" />
 
-<!--    <ImageView-->
-<!--        android:layout_width="wrap_content"-->
-<!--        android:layout_height="wrap_content"-->
-<!--        android:src="@drawable/ic_image_black_24dp"-->
-<!--        android:tint="@color/colorPrimary"-->
-<!--        android:padding="8dp"-->
-<!--        android:layout_alignParentBottom="true"-->
-<!--        android:layout_toEndOf="@id/messageEdit"-->
-<!--        android:layout_marginBottom="16dp"-->
-<!--        android:id="@+id/pickImgBtn"-->
-<!--        android:layout_alignParentEnd="true"/>-->
+    <ImageView
+        android:id="@+id/pickImgBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_image_black_24dp"
+        android:tint="@color/colorPrimary"
+        android:padding="8dp"
+        android:layout_alignParentBottom="true"
+        android:layout_toEndOf="@id/messageEdit"
+        android:layout_marginBottom="16dp"
+        android:layout_alignParentEnd="true"/>
 
 </RelativeLayout>

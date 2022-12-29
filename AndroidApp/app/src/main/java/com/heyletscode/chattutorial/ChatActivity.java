@@ -5,12 +5,13 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -25,12 +26,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.*;
-import java.time.temporal.*;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.Date;
@@ -54,10 +51,12 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private Date currentTime;
 //    private SimpleDateFormat simpleDateFormat;
 
-//    private WebSocket webSocket;
-//    private String SERVER_PATH = "ws://echo.websocket.org";
+
     private EditText messageEdit;
+
     private View sendBtn;
+    private ImageView pickImgBtn;
+
     private RecyclerView recyclerView;
     private int IMAGE_REQUEST_ID = 1;
     private MessageAdapter messageAdapter;
@@ -74,11 +73,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //    }
 
     private Socket mSocket;
+
 //    {
 //        socket = IO.socket(URI.create("http://172.20.10.10:3333"));
 //        mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
 //    }
-
 
 
 
@@ -184,6 +183,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         } else {
 
             sendBtn.setVisibility(View.VISIBLE);
+            pickImgBtn.setVisibility(View.INVISIBLE);
 //            pickImgBtn.setVisibility(View.INVISIBLE);
         }
 
@@ -195,7 +195,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         messageEdit.setText("");
         sendBtn.setVisibility(View.INVISIBLE);
-//        pickImgBtn.setVisibility(View.VISIBLE);
+        pickImgBtn.setVisibility(View.VISIBLE);
 
         messageEdit.addTextChangedListener(this);
 
@@ -336,7 +336,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         messageEdit = findViewById(R.id.messageEdit);
         sendBtn = findViewById(R.id.sendBtn);
-//        pickImgBtn = findViewById(R.id.pickImgBtn);
+        pickImgBtn = findViewById(R.id.pickImgBtn);
 
         recyclerView = findViewById(R.id.recyclerView);
 
@@ -409,66 +409,66 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         });
 
         // NOT
-//        pickImgBtn.setOnClickListener(v -> {
-//
-//            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-//            intent.setType("image/*");
-//
-//            startActivityForResult(Intent.createChooser(intent, "Pick image"),
-//                    IMAGE_REQUEST_ID);
-//
-//        });
+        pickImgBtn.setOnClickListener(v -> {
+
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.setType("image/*");
+
+            startActivityForResult(Intent.createChooser(intent, "Pick image"),
+                    IMAGE_REQUEST_ID);
+
+        });
 
     }
 
 
     // NOT
-//    @Override
-//    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-//        super.onActivityResult(requestCode, resultCode, data);
-//
-//        if (requestCode == IMAGE_REQUEST_ID && resultCode == RESULT_OK) {
-//
-//            try {
-//                InputStream is = getContentResolver().openInputStream(data.getData());
-//                Bitmap image = BitmapFactory.decodeStream(is);
-//
-//                sendImage(image);
-//
-//            } catch (FileNotFoundException e) {
-//                e.printStackTrace();
-//            }
-//
-//        }
-//
-//    }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == IMAGE_REQUEST_ID && resultCode == RESULT_OK) {
+
+            try {
+                InputStream is = getContentResolver().openInputStream(data.getData());
+                Bitmap image = BitmapFactory.decodeStream(is);
+
+                sendImage(image);
+
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+    }
 
     // NOT
-//    private void sendImage(Bitmap image) {
-//
-//        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//        image.compress(Bitmap.CompressFormat.JPEG, 50, outputStream);
-//
-//        String base64String = Base64.encodeToString(outputStream.toByteArray(),
-//                Base64.DEFAULT);
-//
-//        JSONObject jsonObject = new JSONObject();
-//
-//        try {
-//            jsonObject.put("name", name);
-//            jsonObject.put("image", base64String);
-//
-//            webSocket.send(jsonObject.toString());
-//
-//            jsonObject.put("isSent", true);
-//
-//            messageAdapter.addItem(jsonObject);
-//
-//            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-//
-//        } catch (JSONException e) {
-//            e.printStackTrace();
-//        }
-//
-//    }
+    private void sendImage(Bitmap image) {
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        image.compress(Bitmap.CompressFormat.JPEG, 50, outputStream);
+
+        String base64String = Base64.encodeToString(outputStream.toByteArray(),
+                Base64.DEFAULT);
+
+        JSONObject jsonObject = new JSONObject();
+
+        try {
+            jsonObject.put("name", name);
+            jsonObject.put("image", base64String);
+
+
+            mSocket.emit("send_image",jsonObject.toString());
+            jsonObject.put("isSent", true);
+
+            messageAdapter.addItem(jsonObject);
+
+            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+    }
 }
