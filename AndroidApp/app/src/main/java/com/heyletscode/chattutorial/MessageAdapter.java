@@ -34,12 +34,14 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
     private class SentMessageHolder extends RecyclerView.ViewHolder {
 
-        TextView messageTxt;
+        TextView messageTxt,nameTxt,timeTxt;
 
         public SentMessageHolder(@NonNull View itemView) {
             super(itemView);
-
+            nameTxt = itemView.findViewById(R.id.sentNameTxt);
             messageTxt = itemView.findViewById(R.id.sentTxt);
+            timeTxt = itemView.findViewById(R.id.sentDateTxt);
+
         }
     }
 
@@ -56,13 +58,14 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
     private class ReceivedMessageHolder extends RecyclerView.ViewHolder {
 
-        TextView nameTxt, messageTxt;
+        TextView nameTxt, timeTxt, messageTxt;
 
         public ReceivedMessageHolder(@NonNull View itemView) {
             super(itemView);
 
             nameTxt = itemView.findViewById(R.id.nameTxt);
             messageTxt = itemView.findViewById(R.id.receivedTxt);
+            timeTxt = itemView.findViewById(R.id.dateTxt);
         }
     }
 
@@ -150,6 +153,9 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                     SentMessageHolder messageHolder = (SentMessageHolder) holder;
                     messageHolder.messageTxt.setText(message.getString("message"));
+                    messageHolder.nameTxt.setText(message.getString("name"));
+                    messageHolder.timeTxt.setText(message.getString("time"));
+
 
                 } else {
 
@@ -167,6 +173,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     ReceivedMessageHolder messageHolder = (ReceivedMessageHolder) holder;
                     messageHolder.nameTxt.setText(message.getString("name"));
                     messageHolder.messageTxt.setText(message.getString("message"));
+                    messageHolder.timeTxt.setText(message.getString("time"));
 
                 } else {
 

@@ -26,7 +26,9 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.temporal.*;
 import java.util.Calendar;
@@ -49,7 +51,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private String name;
     private Socket socket;
     private Calendar cal = Calendar.getInstance(Locale.ENGLISH);
-    private Date currentTime = Calendar.getInstance().getTime();
+    private Date currentTime;
+//    private SimpleDateFormat simpleDateFormat;
+
 //    private WebSocket webSocket;
 //    private String SERVER_PATH = "ws://echo.websocket.org";
     private EditText messageEdit;
@@ -85,8 +89,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         name = getIntent().getStringExtra("name");
         {
             Log.d(TAG, "Before socket connection");
-            socket = IO.socket(URI.create("http://192.168.10.112:3333"));
-            mSocket = IO.socket(URI.create("http://192.168.10.112:3333/chat"));
+            socket = IO.socket(URI.create("http://192.168.1.2:3333"));
+            mSocket = IO.socket(URI.create("http://192.168.1.2:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
@@ -285,7 +289,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                         try {
                             jsonObject.put("name", username);
                             jsonObject.put("message", message);
-//                            jsonObject.put("time", time);
+                            jsonObject.put("time", time);
                             jsonObject.put("isSent", false);
                         } catch (JSONException e) {
                             e.printStackTrace();
@@ -345,9 +349,15 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         // ON CLICK EMITTER
         sendBtn.setOnClickListener(v -> {
+            currentTime = Calendar.getInstance().getTime();
+            String format = "KK:mm";
+            DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
+            String datetime = simpleDateFormat.format(currentTime);
+
 
 
             JSONObject jsonObject = new JSONObject();
+            JSONObject mobile = new JSONObject();
             try {
 
 
@@ -357,11 +367,19 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //                    return;
 //                }
 //                JSONObject jsonObject = new JSONObject();
+//                jsonObject.put("time",currentTime );
                 jsonObject.put("username", name);
                 jsonObject.put("message", messageEdit.getText().toString());
-                jsonObject.put("time",currentTime );
+                jsonObject.put("time",datetime);
                 jsonObject.put("isSent", true);
-                messageAdapter.addItem(jsonObject);
+
+                mobile.put("name", name);
+                mobile.put("message",messageEdit.getText().toString());
+                mobile.put("time",datetime);
+//                mobile.put("time",currentTime );
+                mobile.put("isSent", true);
+
+                messageAdapter.addItem(mobile);
                 messageEdit.setText("");
                 mSocket.emit("send_message",jsonObject.toString());
 

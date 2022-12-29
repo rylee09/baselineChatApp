@@ -4,12 +4,23 @@
     android:layout_height="wrap_content">
 
     <TextView
+        android:id="@+id/nameTxt"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="4dp"
-        android:id="@+id/nameTxt"
         android:text="Name"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+
+        />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="4dp"
+        android:text="3022222"
+        android:id="@+id/dateTxt"
+        android:layout_toEndOf="@id/nameTxt"
+        />
 
     <TextView
         android:layout_width="wrap_content"
