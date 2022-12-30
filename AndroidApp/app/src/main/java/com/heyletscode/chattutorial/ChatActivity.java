@@ -80,9 +80,17 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private Socket mSocket;
 
 //    {
+//    ruiiying
 //        socket = IO.socket(URI.create("http://172.20.10.10:3333"));
 //        mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
 //    }
+
+    //    {
+//    Glenn
+//        socket = IO.socket(URI.create("http://192.168.1.239:3333"));
+//        mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
+//    }
+
 
 
 
@@ -93,8 +101,10 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         name = getIntent().getStringExtra("name");
         {
             Log.d(TAG, "Before socket connection");
-            socket = IO.socket(URI.create("http://172.20.10.13:3333"));
-            mSocket = IO.socket(URI.create("http://172.20.10.13:3333/chat"));
+            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
+            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
+//            socket = IO.socket(URI.create("http://172.20.10.13:3333"));
+//            mSocket = IO.socket(URI.create("http://172.20.10.13:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
@@ -108,6 +118,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 Toast.makeText(ChatActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
             }
             mSocket.on("receive_message",onNewMessage);
+            mSocket.on("receive_image", onNewImage);
         };
 
         initializeView();
@@ -232,33 +243,44 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //        resetMessageEdit();
 //    }
 
+    private Emitter.Listener onNewImage = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d(TAG, "run: ONNEWIMAGELISTENER");
+                    String s = args[0].toString();
 
 
+                    JSONObject mobileObject = new JSONObject();
+                    try {
+                        JSONObject jsonObject = new JSONObject(s);
+                        String name  = jsonObject.getString("name");
+                        String image = jsonObject.getString("image");
+                        String time = jsonObject.getString("time");
+
+                        Log.d(TAG, name);
+                        Log.d(TAG, image);
+                        Log.d(TAG, time);
+
+                        mobileObject.put("name",name);
+                        mobileObject.put("image", image);
+                        mobileObject.put("time",time);
+                        mobileObject.put("isSent", true);
+                        messageAdapter.addItem(mobileObject);
+
+                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+                    } catch (JSONException e){
+                        e.printStackTrace();
+                    }
+                    }
+
+            });
+        }
+    };
 
 
-        // ADD MESSAGE TO RECYCLER
-//        @Override
-//        public void onMessage(WebSocket webSocket, String text) {
-//            super.onMessage(webSocket, text);
-//
-//            runOnUiThread(() -> {
-//
-//                try {
-//                    JSONObject jsonObject = new JSONObject(text);
-//                    jsonObject.put("isSent", false);
-//
-//                    messageAdapter.addItem(jsonObject);
-//
-//                    recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-//
-//                } catch (JSONException e) {
-//                    e.printStackTrace();
-//                }
-//
-//            });
-//
-//        }
-//    }
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
             @Override
             public void call(Object... args) {
@@ -320,6 +342,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             }
         };
 
+
+    
 
     private void initializeView() {
 
