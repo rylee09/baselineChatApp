@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -56,6 +57,10 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     private View sendBtn;
     private ImageView pickImgBtn;
+    private FrameLayout cameraPreview;
+    private ImageView pickMicBtn;
+    private ImageView pickCameraBtn;
+
 
     private RecyclerView recyclerView;
     private int IMAGE_REQUEST_ID = 1;
@@ -88,8 +93,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         name = getIntent().getStringExtra("name");
         {
             Log.d(TAG, "Before socket connection");
-            socket = IO.socket(URI.create("http://192.168.1.2:3333"));
-            mSocket = IO.socket(URI.create("http://192.168.1.2:3333/chat"));
+            socket = IO.socket(URI.create("http://172.20.10.13:3333"));
+            mSocket = IO.socket(URI.create("http://172.20.10.13:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
@@ -130,38 +135,21 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //            }
 //        });
 
-            mSocket.on("connection", new Emitter.Listener() {
-                @Override
-                public void call(final Object... args) {
-                    Toast.makeText(ChatActivity.this,
-                        "Socket Connection Successful!",
-                        Toast.LENGTH_SHORT).show();
-//                    initializeView();
-//                    mSocket.on("receive_message",onNewMessage);
-
-
-                }
-            });
-
-
-
-
-
-
-
+//            mSocket.on("connection", new Emitter.Listener() {
+//                @Override
+//                public void call(final Object... args) {
+//                    Toast.makeText(ChatActivity.this,
+//                        "Socket Connection Successful!",
+//                        Toast.LENGTH_SHORT).show();
+////                    initializeView();
+////                    mSocket.on("receive_message",onNewMessage);
+//
+//
+//                }
+//            });
 
     }
 
-//
-//
-//    // NOT USING
-//    private void initiateSocketConnection() {
-//
-//        OkHttpClient client = new OkHttpClient();
-//        Request request = new Request.Builder().url(SERVER_PATH).build();
-//        webSocket = client.newWebSocket(request, new SocketListener());
-//
-//    }
 
     @Override
     public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -184,7 +172,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
             sendBtn.setVisibility(View.VISIBLE);
             pickImgBtn.setVisibility(View.INVISIBLE);
-//            pickImgBtn.setVisibility(View.INVISIBLE);
+            pickMicBtn.setVisibility(View.INVISIBLE);
+            pickCameraBtn.setVisibility(View.INVISIBLE);
         }
 
     }
@@ -196,6 +185,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         messageEdit.setText("");
         sendBtn.setVisibility(View.INVISIBLE);
         pickImgBtn.setVisibility(View.VISIBLE);
+        pickMicBtn.setVisibility(View.VISIBLE);
+        pickCameraBtn.setVisibility(View.VISIBLE);
 
         messageEdit.addTextChangedListener(this);
 
@@ -338,6 +329,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         sendBtn = findViewById(R.id.sendBtn);
         pickImgBtn = findViewById(R.id.pickImgBtn);
 
+        cameraPreview = findViewById(R.id.camera_preview);
+        pickCameraBtn = findViewById(R.id.cameraBtn);
+        pickMicBtn = findViewById(R.id.micBtn);
+
+
         recyclerView = findViewById(R.id.recyclerView);
 
         messageAdapter = new MessageAdapter(getLayoutInflater());
@@ -452,12 +448,17 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         String base64String = Base64.encodeToString(outputStream.toByteArray(),
                 Base64.DEFAULT);
 
+        currentTime = Calendar.getInstance().getTime();
+        String format = "KK:mm";
+        DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
+        String datetime = simpleDateFormat.format(currentTime);
+
         JSONObject jsonObject = new JSONObject();
 
         try {
             jsonObject.put("name", name);
             jsonObject.put("image", base64String);
-
+            jsonObject.put("time", datetime);
 
             mSocket.emit("send_image",jsonObject.toString());
             jsonObject.put("isSent", true);
