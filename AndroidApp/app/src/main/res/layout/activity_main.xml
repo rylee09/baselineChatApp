@@ -28,4 +28,7 @@
         android:background="@color/colorPrimaryDark"
         android:id="@+id/enterBtn"/>
 
+
+
+
 </RelativeLayout>

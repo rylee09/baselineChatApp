@@ -17,8 +17,12 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.databinding.DataBindingUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.databinding.DataBindingUtil;
+
+import com.heyletscode.chattutorial.databinding.VideoCallBinding;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -45,6 +49,8 @@ import io.socket.emitter.Emitter;
 
 public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
+    private VideoCallBinding binding;
+
     private static final String TAG = "ChatActivity";
     private String name;
     private Socket socket;
@@ -60,6 +66,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private FrameLayout cameraPreview;
     private ImageView pickMicBtn;
     private ImageView pickCameraBtn;
+    private Button pickVideoBtn;
 
 
     private RecyclerView recyclerView;
@@ -101,10 +108,10 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         name = getIntent().getStringExtra("name");
         {
             Log.d(TAG, "Before socket connection");
-            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
-            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-//            socket = IO.socket(URI.create("http://172.20.10.13:3333"));
-//            mSocket = IO.socket(URI.create("http://172.20.10.13:3333/chat"));
+//            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
+//            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
+            socket = IO.socket(URI.create("http://172.20.10.13:3333"));
+            mSocket = IO.socket(URI.create("http://172.20.10.13:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
@@ -357,6 +364,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         pickCameraBtn = findViewById(R.id.cameraBtn);
         pickMicBtn = findViewById(R.id.micBtn);
 
+        pickVideoBtn = findViewById(R.id.videoBtn);
+
 
         recyclerView = findViewById(R.id.recyclerView);
 
@@ -366,6 +375,22 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
         messageEdit.addTextChangedListener(this);
+
+        pickVideoBtn.setOnClickListener(v -> {
+                    Log.d(TAG, "VIDEO SHOULD OPEN");
+//                    Intent i = new Intent(getApplicationContext(),ChatActivity.class);
+//                    startActivity(i);
+                    Intent intent = new Intent(this, VideoActivity.class);
+////                    intent.putExtra("name", editText.getText().toString());
+                    startActivity(intent);
+//
+//                    binding = DataBindingUtil.setContentView(this, R.layout.video_call);
+//                    setSupportActionBar(binding.toolbar);
+//                    startActivity(new Intent(this, VideoActivity.class));
+
+                }
+                    );
+
 
         // ON CLICK EMITTER
         sendBtn.setOnClickListener(v -> {
