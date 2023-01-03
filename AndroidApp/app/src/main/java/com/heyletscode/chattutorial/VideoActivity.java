@@ -33,6 +33,7 @@ import org.webrtc.VideoRenderer;
 import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
@@ -123,74 +124,71 @@ public class VideoActivity extends AppCompatActivity{
     }
 
     private void connectToSignallingServer() {
-        try {
-            // For me this was "http://192.168.1.220:3000";
-            // $ hostname -I
-            String URL = "http://172.20.10.13:3000";
-            Log.e(TAG, "REPLACE ME: IO Socket:" + URL);
-            socket = IO.socket(URL);
-            socket.on(EVENT_CONNECT, args -> {
-                Log.d(TAG, "connectToSignallingServer: connect");
-                socket.emit("create or join", "foo");
-            }).on("ipaddr", args -> {
-                Log.d(TAG, "connectToSignallingServer: ipaddr");
-            }).on("created", args -> {
-                Log.d(TAG, "connectToSignallingServer: created");
-                isInitiator = true;
-            }).on("full", args -> {
-                Log.d(TAG, "connectToSignallingServer: full");
-            }).on("join", args -> {
-                Log.d(TAG, "connectToSignallingServer: join");
-                Log.d(TAG, "connectToSignallingServer: Another peer made a request to join room");
-                Log.d(TAG, "connectToSignallingServer: This peer is the initiator of room");
-                isChannelReady = true;
-            }).on("joined", args -> {
-                Log.d(TAG, "connectToSignallingServer: joined");
-                isChannelReady = true;
-            }).on("log", args -> {
-                for (Object arg : args) {
-                    Log.d(TAG, "connectToSignallingServer: " + String.valueOf(arg));
-                }
-            }).on("message", args -> {
-                Log.d(TAG, "connectToSignallingServer: got a message");
-            }).on("message", args -> {
-                try {
-                    if (args[0] instanceof String) {
-                        String message = (String) args[0];
-                        if (message.equals("got user media")) {
+        // For me this was "http://192.168.1.220:3000";
+        // $ hostname -I
+        String URL = "http://172.20.10.10:3333/video";
+        Log.e(TAG, "REPLACE ME: IO Socket:" + URL);
+        socket = IO.socket(URI.create("http://172.20.10.10:3333/video"));
+        socket.connect();
+        socket.on(EVENT_CONNECT, args -> {
+            Log.d(TAG, "connectToSignallingServer: connect");
+            socket.emit("create or join", "foo");
+        }).on("ipaddr", args -> {
+            Log.d(TAG, "connectToSignallingServer: ipaddr");
+        }).on("created", args -> {
+            Log.d(TAG, "connectToSignallingServer: created");
+            isInitiator = true;
+        }).on("full", args -> {
+            Log.d(TAG, "connectToSignallingServer: full");
+        }).on("join", args -> {
+            Log.d(TAG, "connectToSignallingServer: join");
+            Log.d(TAG, "connectToSignallingServer: Another peer made a request to join room");
+            Log.d(TAG, "connectToSignallingServer: This peer is the initiator of room");
+            isChannelReady = true;
+        }).on("joined", args -> {
+            Log.d(TAG, "connectToSignallingServer: joined");
+            isChannelReady = true;
+        }).on("log", args -> {
+            for (Object arg : args) {
+                Log.d(TAG, "connectToSignallingServer: " + String.valueOf(arg));
+            }
+        }).on("message", args -> {
+            Log.d(TAG, "connectToSignallingServer: got a message");
+        }).on("message", args -> {
+            try {
+                if (args[0] instanceof String) {
+                    String message = (String) args[0];
+                    if (message.equals("got user media")) {
+                        maybeStart();
+                    }
+                } else {
+                    JSONObject message = (JSONObject) args[0];
+                    Log.d(TAG, "connectToSignallingServer: got message " + message);
+                    if (message.getString("type").equals("offer")) {
+                        Log.d(TAG, "connectToSignallingServer: received an offer " + isInitiator + " " + isStarted);
+                        if (!isInitiator && !isStarted) {
                             maybeStart();
                         }
-                    } else {
-                        JSONObject message = (JSONObject) args[0];
-                        Log.d(TAG, "connectToSignallingServer: got message " + message);
-                        if (message.getString("type").equals("offer")) {
-                            Log.d(TAG, "connectToSignallingServer: received an offer " + isInitiator + " " + isStarted);
-                            if (!isInitiator && !isStarted) {
-                                maybeStart();
-                            }
-                            peerConnection.setRemoteDescription(new SimpleSdpObserver(), new SessionDescription(OFFER, message.getString("sdp")));
-                            doAnswer();
-                        } else if (message.getString("type").equals("answer") && isStarted) {
-                            peerConnection.setRemoteDescription(new SimpleSdpObserver(), new SessionDescription(ANSWER, message.getString("sdp")));
-                        } else if (message.getString("type").equals("candidate") && isStarted) {
-                            Log.d(TAG, "connectToSignallingServer: receiving candidates");
-                            IceCandidate candidate = new IceCandidate(message.getString("id"), message.getInt("label"), message.getString("candidate"));
-                            peerConnection.addIceCandidate(candidate);
-                        }
-                        /*else if (message === 'bye' && isStarted) {
-                        handleRemoteHangup();
-                    }*/
+                        peerConnection.setRemoteDescription(new SimpleSdpObserver(), new SessionDescription(OFFER, message.getString("sdp")));
+                        doAnswer();
+                    } else if (message.getString("type").equals("answer") && isStarted) {
+                        peerConnection.setRemoteDescription(new SimpleSdpObserver(), new SessionDescription(ANSWER, message.getString("sdp")));
+                    } else if (message.getString("type").equals("candidate") && isStarted) {
+                        Log.d(TAG, "connectToSignallingServer: receiving candidates");
+                        IceCandidate candidate = new IceCandidate(message.getString("id"), message.getInt("label"), message.getString("candidate"));
+                        peerConnection.addIceCandidate(candidate);
                     }
-                } catch (JSONException e) {
-                    e.printStackTrace();
+                    /*else if (message === 'bye' && isStarted) {
+                    handleRemoteHangup();
+                }*/
                 }
-            }).on(EVENT_DISCONNECT, args -> {
-                Log.d(TAG, "connectToSignallingServer: disconnect");
-            });
-            socket.connect();
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }).on(EVENT_DISCONNECT, args -> {
+            Log.d(TAG, "connectToSignallingServer: disconnect");
+        });
+//        socket.connect();
     }
     //MirtDPM4
     private void doAnswer() {
@@ -299,8 +297,8 @@ public class VideoActivity extends AppCompatActivity{
 
     private PeerConnection createPeerConnection(PeerConnectionFactory factory) {
         ArrayList<PeerConnection.IceServer> iceServers = new ArrayList<>();
-        String URL = "stun:stun.l.google.com:19302";
-        iceServers.add(new PeerConnection.IceServer(URL));
+//        String URL = "stun:stun.l.google.com:19302";
+//        iceServers.add(new PeerConnection.IceServer(URL));
 
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
         MediaConstraints pcConstraints = new MediaConstraints();

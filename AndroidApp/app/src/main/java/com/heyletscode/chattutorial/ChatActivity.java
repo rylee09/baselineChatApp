@@ -110,8 +110,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-            socket = IO.socket(URI.create("http://172.20.10.13:3333"));
-            mSocket = IO.socket(URI.create("http://172.20.10.13:3333/chat"));
+            socket = IO.socket(URI.create("http://172.20.10.10:3333"));
+            mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
