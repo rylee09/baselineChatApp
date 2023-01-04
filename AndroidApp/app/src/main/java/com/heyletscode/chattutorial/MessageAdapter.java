@@ -2,6 +2,7 @@ package com.heyletscode.chattutorial;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.Drawable;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +26,8 @@ public class MessageAdapter extends RecyclerView.Adapter {
     private static final int TYPE_MESSAGE_RECEIVED = 1;
     private static final int TYPE_IMAGE_SENT = 2;
     private static final int TYPE_IMAGE_RECEIVED = 3;
+    private static final int TYPE_AUDIO_SENT = 4;
+    private static final int TYPE_AUDIO_RECEIVED = 5;
 
     private LayoutInflater inflater;
     private List<JSONObject> messages = new ArrayList<>();
@@ -38,6 +42,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
         public SentMessageHolder(@NonNull View itemView) {
             super(itemView);
+
             nameTxt = itemView.findViewById(R.id.sentNameTxt);
             messageTxt = itemView.findViewById(R.id.sentTxt);
             timeTxt = itemView.findViewById(R.id.sentDateTxt);
@@ -48,11 +53,29 @@ public class MessageAdapter extends RecyclerView.Adapter {
     private class SentImageHolder extends RecyclerView.ViewHolder {
 
         ImageView imageView;
+        TextView nameTxt, timeTxt;
 
         public SentImageHolder(@NonNull View itemView) {
             super(itemView);
 
             imageView = itemView.findViewById(R.id.imageView);
+            nameTxt = itemView.findViewById(R.id.sentNameTxt);
+            timeTxt = itemView.findViewById(R.id.sentDateTxt);
+        }
+    }
+
+    private class SentAudioHolder extends RecyclerView.ViewHolder {
+        ImageView audioView;
+        TextView nameTxt, timeTxt;
+
+        public SentAudioHolder(@NonNull View itemView) {
+            super(itemView);
+
+            audioView = itemView.findViewById(R.id.playBtn);
+            nameTxt = itemView.findViewById(R.id.sentNameTxt);
+            timeTxt = itemView.findViewById(R.id.sentDateTxt);
+
+
         }
     }
 
@@ -72,13 +95,30 @@ public class MessageAdapter extends RecyclerView.Adapter {
     private class ReceivedImageHolder extends RecyclerView.ViewHolder {
 
         ImageView imageView;
-        TextView nameTxt;
+        TextView nameTxt, timeTxt;
 
         public ReceivedImageHolder(@NonNull View itemView) {
             super(itemView);
 
             imageView = itemView.findViewById(R.id.imageView);
             nameTxt = itemView.findViewById(R.id.nameTxt);
+            timeTxt = itemView.findViewById(R.id.dateTxt);
+
+        }
+    }
+
+    private class ReceivedAudioHolder extends RecyclerView.ViewHolder {
+
+        ImageView audioView;
+        TextView nameTxt, timeTxt;
+
+        public ReceivedAudioHolder(@NonNull View itemView) {
+            super(itemView);
+
+            audioView = itemView.findViewById(R.id.playBtn);
+            nameTxt = itemView.findViewById(R.id.nameTxt);
+            timeTxt = itemView.findViewById(R.id.dateTxt);
+
 
         }
     }
@@ -93,15 +133,19 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                 if (message.has("message"))
                     return TYPE_MESSAGE_SENT;
-                else
+                else if (message.has("image"))
                     return TYPE_IMAGE_SENT;
+                else
+                    return TYPE_AUDIO_SENT;
 
             } else {
 
                 if (message.has("message"))
                     return TYPE_MESSAGE_RECEIVED;
-                else
+                else if (message.has("image"))
                     return TYPE_IMAGE_RECEIVED;
+                else
+                    return TYPE_AUDIO_RECEIVED;
 
             }
         } catch (JSONException e) {
@@ -136,6 +180,16 @@ public class MessageAdapter extends RecyclerView.Adapter {
                 view = inflater.inflate(R.layout.item_received_photo, parent, false);
                 return new ReceivedImageHolder(view);
 
+            case TYPE_AUDIO_SENT:
+
+                view = inflater.inflate(R.layout.item_sent_audio, parent, false);
+                return new SentAudioHolder(view);
+
+            case TYPE_AUDIO_RECEIVED:
+
+                view = inflater.inflate(R.layout.item_received_audio, parent, false);
+                return new ReceivedAudioHolder(view);
+
         }
 
         return null;
@@ -157,13 +211,20 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     messageHolder.timeTxt.setText(message.getString("time"));
 
 
-                } else {
+                } else if (message.has("image")) {
 
                     SentImageHolder imageHolder = (SentImageHolder) holder;
                     Bitmap bitmap = getBitmapFromString(message.getString("image"));
 
                     imageHolder.imageView.setImageBitmap(bitmap);
+                    imageHolder.nameTxt.setText(message.getString("name"));
+                    imageHolder.timeTxt.setText(message.getString("time"));
 
+                } else {
+                    SentAudioHolder audioHolder = (SentAudioHolder) holder;
+                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
+                    audioHolder.nameTxt.setText(message.getString("name"));
+                    audioHolder.timeTxt.setText(message.getString("time"));
                 }
 
             } else {
@@ -175,14 +236,20 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     messageHolder.messageTxt.setText(message.getString("message"));
                     messageHolder.timeTxt.setText(message.getString("time"));
 
-                } else {
+                } else if (message.has("image")){
 
                     ReceivedImageHolder imageHolder = (ReceivedImageHolder) holder;
-                    imageHolder.nameTxt.setText(message.getString("name"));
 
                     Bitmap bitmap = getBitmapFromString(message.getString("image"));
                     imageHolder.imageView.setImageBitmap(bitmap);
+                    imageHolder.nameTxt.setText(message.getString("name"));
+                    imageHolder.timeTxt.setText(message.getString("time"));
 
+                } else {
+                    ReceivedAudioHolder audioHolder = (ReceivedAudioHolder) holder;
+                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
+                    audioHolder.nameTxt.setText(message.getString("name"));
+                    audioHolder.timeTxt.setText(message.getString("time"));
                 }
 
             }
