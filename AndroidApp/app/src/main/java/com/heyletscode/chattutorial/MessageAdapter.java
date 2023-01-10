@@ -222,7 +222,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                 } else {
                     SentAudioHolder audioHolder = (SentAudioHolder) holder;
-                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
+                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
                     audioHolder.timeTxt.setText(message.getString("time"));
                 }
@@ -247,7 +247,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                 } else {
                     ReceivedAudioHolder audioHolder = (ReceivedAudioHolder) holder;
-                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_pause_circle_outline_24);
+                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
                     audioHolder.timeTxt.setText(message.getString("time"));
                 }

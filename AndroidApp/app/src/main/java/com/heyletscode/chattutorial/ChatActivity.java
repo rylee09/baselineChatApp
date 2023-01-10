@@ -6,8 +6,11 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.AudioFormat;
+import android.net.rtp.AudioStream;
 import android.os.Bundle;
 import android.os.FileUtils;
+import android.os.StrictMode;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Base64;
@@ -20,6 +23,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.databinding.DataBindingUtil;
@@ -31,6 +35,7 @@ import com.heyletscode.chattutorial.databinding.VideoCallBinding;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.webrtc.AudioSource;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,9 +56,16 @@ import java.util.Date;
 //import okhttp3.WebSocket;
 //import okhttp3.WebSocketListener;
 
+import de.tavendo.autobahn.ByteBufferInputStream;
 import io.socket.client.IO;
 import io.socket.client.Socket;
 import io.socket.emitter.Emitter;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 
 import androidx.core.app.ActivityCompat;
@@ -73,6 +85,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+
 import java.io.IOException;
 //
 //import static android.Manifest.permission.RECORD_AUDIO;
@@ -80,7 +93,8 @@ import java.io.IOException;
 
 public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
-    private VideoCallBinding binding;
+
+//    private VideoCallBinding binding;
 
     private static final String TAG = "ChatActivity";
     private String name;
@@ -134,6 +148,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //
 //    }
 
+
+
     private Socket mSocket;
 
 //    {
@@ -156,12 +172,18 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
         name = getIntent().getStringExtra("name");
+
+        if (android.os.Build.VERSION.SDK_INT > 9)
+        {
+            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
         {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-            socket = IO.socket(URI.create("http://172.20.10.2:3333"));
-            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
+            socket = IO.socket(URI.create("http://172.20.10.10:3333"));
+            mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
             mSocket.connect();
 
             if (mSocket.connected()){
@@ -469,6 +491,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                 mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
                 mRecorder.setOutputFile(getRecordingFilePath());
+//                mRecorder.setOutputFormat(AudioFormat.ENCODING_PCM_8BIT);
                 mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
                 mRecorder.prepare();
                 mRecorder.start();
@@ -556,52 +579,135 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
-    public static byte[] getBytesFromInputStream(InputStream is) throws IOException {
+    private static byte[] getBytesFromInputStream(InputStream is) throws IOException {
         ByteArrayOutputStream os = new ByteArrayOutputStream();
-        byte[] buffer = new byte[0xFFFF];
+        byte[] buffer = new byte[4];
+
+        boolean print = true;
         for (int len = is.read(buffer); len != -1; len = is.read(buffer)) {
+            if (print) {
+                System.out.println("Stream buffer contains: " + buffer[0] + " " + buffer[1] + " " + buffer[2] + " " + buffer[3]);
+                print = false;
+            }
+            System.out.println("length of buffer: " + len );
+
+
+//            System.out.println("Stream buffer 1st: " + buffer[0].getClass() );
+
             os.write(buffer, 0, len);
+//            System.out.println("Stream DATA buffer size 10000: " + os );
         }
+
+
+//        System.out.println("Stream DATA buffer: " + os );
+//        System.out.println("Stream DATA buffer to byte array in memory: " + os.toByteArray() );
+        System.out.println("Stream Data Test: " + os );
+
+
+        os.flush();
+        System.out.println("Size of output stream: " + os.size());
 
         return os.toByteArray();
     }
 
     private void sendAudio() throws IOException {
-//        File file = new File(getRecordingFilePath());
-//        byte[] myByteArray = new byte[];
+        File file = new File(getRecordingFilePath());
+////        byte[] myByteArray = new byte[];
+//
+//            String path = getRecordingFilePath(); // Audio File path
+//            InputStream inputStream = new FileInputStream(path);
+//            byte[] myByteArray = new byte[(int) 1000];
+//            inputStream.read(myByteArray, 0, 100);
+//
+//        OkHttpClient client = new OkHttpClient();
+//        Log.d("HTTP AUDIO", "File Name: " + file);
+//        Log.d("HTTP AUDIO", "CALLED ACTUAL REQUEST");
+//        String url = "http://172.20.10.10:3333/uploadFile";
+//
+//        RequestBody body = new MultipartBody.Builder()
+//                .setType(MultipartBody.FORM)
+//                .addFormDataPart("audio", file.getName(),
+//                    RequestBody.create(MediaType.parse("multipart/form-data"), file))
+//                .build();
+//
+//        Request request = new Request.Builder()
+//                .url(url)
+//                .post(body)
+//                .build();
+//
+//        try {
+//            Response response = client
+//                    .newCall(request).execute();
+//            Log.d("HTTP AUDIO", "Response Successful");
+//            Log.d("HTTP AUDIO", response.body().string());
+//
+//
+//        } catch (IOException e){
+//            Log.d("HTTP AUDIO", "Exception occured: " + e.toString());
+//
+//            e.printStackTrace();
+//        }
+
+
+
+
+
         try {
             String path = getRecordingFilePath(); // Audio File path
             InputStream inputStream = new FileInputStream(path);
             byte[] myByteArray = getBytesFromInputStream(inputStream);
+            System.out.println("1st array of full os: " + myByteArray[0]+" " + myByteArray[1] + " " +myByteArray[2] + " " + myByteArray[3]);
 
 
-        currentTime = Calendar.getInstance().getTime();
-        String format = "KK:mm";
-        DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-        String datetime = simpleDateFormat.format(currentTime);
+            // ...
+            // unpack stream buffer
+            int currentPositionInArray = 0;
+            for (byte b : myByteArray) {
 
-        JSONObject jsonObject = new JSONObject();
+                JSONObject jsonObject = new JSONObject();
 
 
-            jsonObject.put("name", name);
-            jsonObject.put("audio",myByteArray);
-            jsonObject.put("time", datetime);
-            jsonObject.put("path", getRecordingFilePath());
-            mSocket.emit("send_audio",jsonObject.toString());
-            jsonObject.put("isSent", true);
+                jsonObject.put("name", name);
+                jsonObject.put("audioByte",(char)(b & 0xFF));
 
-            messageAdapter.addItem(jsonObject);
+                // Check whether the current byte is the last byte in the array
+                boolean stoppingFlag = (currentPositionInArray == myByteArray.length - 1);
+                jsonObject.put("isLastByte", stoppingFlag);
+
+                mSocket.emit("send_audio",jsonObject.toString());
+
+                currentPositionInArray++;
+//                jsonObject.put("time", datetime);
+//                jsonObject.put("path", getRecordingFilePath());
+
+//                jsonObject.put("isSent", true);
+
+
+                // Print the byte
+//                System.out.println("Unpacking Stream DATA buffer: " + (char)b);
+            }
+            currentTime = Calendar.getInstance().getTime();
+            String format = "KK:mm";
+            DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
+            String datetime = simpleDateFormat.format(currentTime);
+
+            JSONObject jsonObject1 = new JSONObject();
+            jsonObject1.put("name", name);
+            jsonObject1.put("time", datetime);
+            jsonObject1.put("isSent", true);
+
+            messageAdapter.addItem(jsonObject1);
 
             recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
 
 
 
-            // ...
-        } catch(IOException e) {
-            // Handle error...
+
+
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
 
 
     }
@@ -662,7 +768,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private String getRecordingFilePath() {
         ContextWrapper contextWrapper = new ContextWrapper(getApplicationContext());
         File musicDirectory = contextWrapper.getExternalFilesDir(Environment.DIRECTORY_DCIM);
-        File file = new File(musicDirectory, "testRecordingFile" + ".wav");
+        File file = new File(musicDirectory, "testRecordingFile" + ".3gp");
         System.out.println("filepath: " + file);
         return file.getPath();
     }
