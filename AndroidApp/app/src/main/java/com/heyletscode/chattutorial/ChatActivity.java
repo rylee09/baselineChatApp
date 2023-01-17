@@ -1,71 +1,82 @@
 package com.heyletscode.chattutorial;
 
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
+
+
+
 import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.widget.Button;
+
+
 import android.annotation.SuppressLint;
-import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioFormat;
-import android.net.rtp.AudioStream;
-import android.os.Bundle;
-import android.os.FileUtils;
+import android.media.AudioRecord;
 import android.os.StrictMode;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Base64;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.SeekBar;
 import android.widget.Toast;
+
 
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.databinding.DataBindingUtil;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.databinding.DataBindingUtil;
-
-import com.heyletscode.chattutorial.databinding.VideoCallBinding;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.webrtc.AudioSource;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
 import java.util.Date;
-//
+
+
 //import okhttp3.OkHttpClient;
 //import okhttp3.Request;
 //import okhttp3.Response;
 //import okhttp3.WebSocket;
 //import okhttp3.WebSocketListener;
 
-import de.tavendo.autobahn.ByteBufferInputStream;
+import de.tavendo.autobahn.ByteBufferOutputStream;
 import io.socket.client.IO;
+//import io.socket.client.Socket;
 import io.socket.client.Socket;
+import io.socket.client.Url;
 import io.socket.emitter.Emitter;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
 
 
 import androidx.core.app.ActivityCompat;
@@ -74,19 +85,13 @@ import androidx.core.content.ContextCompat;
 import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
-import android.os.Bundle;
 
 
 import android.os.Environment;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
 
 
 import java.io.IOException;
+import java.util.UUID;
 //
 //import static android.Manifest.permission.RECORD_AUDIO;
 //import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
@@ -94,13 +99,34 @@ import java.io.IOException;
 public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
+    private static final int RECORDER_BPP = 16;
+    private static final String AUDIO_RECORDER_FILE_EXT_WAV = ".wav";
+    private static final String AUDIO_RECORDER_FOLDER = "AudioRecorder";
+    private static final String AUDIO_RECORDER_TEMP_FILE = "record_temp.raw";
+    private static final int RECORDER_SAMPLERATE = 44100;
+    private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_STEREO;
+    private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+    short[] audioData;
+
+    private AudioRecord recorder = null;
+    private int bufferSize = 0;
+    private Thread recordingThread = null;
+    private boolean isRecording = false;
+    int[] bufferData;
+    int bytesRecorded;
+
+
+
+
+
 //    private VideoCallBinding binding;
 
     private static final String TAG = "ChatActivity";
     private String name;
-    private Socket socket;
+    private io.socket.client.Socket socket;
     private Calendar cal = Calendar.getInstance(Locale.ENGLISH);
     private Date currentTime;
+    private Date currTime;
 //    private SimpleDateFormat simpleDateFormat;
 
 
@@ -109,9 +135,13 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private View sendBtn;
     private ImageView pickImgBtn;
 //    private FrameLayout cameraPreview;
-    private ImageView pickMicBtn, pickCloseMicBtn;
+    private ImageView pickMicBtn, pickCloseMicBtn, playBtn;
     private ImageView pickCameraBtn;
     private Button pickVideoBtn;
+    private SeekBar seekBar;
+
+    private Handler handler = new Handler();
+    private Boolean isSeekbarTracking = false;
 
 
     private RecyclerView recyclerView;
@@ -137,6 +167,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     // constant for storing audio permission
     public static final int REQUEST_AUDIO_PERMISSION_CODE = 1;
 
+
     //initiate client socket connection
 //    @Override
 //    protected void onCreate(Bundle savedInstanceState) {
@@ -151,6 +182,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
     private Socket mSocket;
+
 
 //    {
 //    ruiiying
@@ -173,6 +205,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         setContentView(R.layout.activity_chat);
         name = getIntent().getStringExtra("name");
 
+        bufferSize = AudioRecord.getMinBufferSize
+                (RECORDER_SAMPLERATE,RECORDER_CHANNELS,RECORDER_AUDIO_ENCODING)*3;
+
+        audioData = new short [bufferSize]; //short array that pcm data is put into.
+
         if (android.os.Build.VERSION.SDK_INT > 9)
         {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
@@ -182,9 +219,10 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-            socket = IO.socket(URI.create("http://172.20.10.10:3333"));
             mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
             mSocket.connect();
+
+
 
             if (mSocket.connected()){
                 Log.d(TAG, "connected");
@@ -198,9 +236,41 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             }
             mSocket.on("receive_message",onNewMessage);
             mSocket.on("receive_image", onNewImage);
+            mSocket.on("receive_web_voice", onNewVoice);
+
         }
 
         initializeView();
+
+//        Thread thread = new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                while (true) {
+//                    try {
+//                        URL url2 = new URL("http://172.20.10.10:3333/endpoint");
+//                        HttpURLConnection connection = (HttpURLConnection) url2.openConnection();
+//                        connection.setRequestMethod("POST");
+//
+//                        InputStream inputStream = new BufferedInputStream(connection.getInputStream());
+//
+//                        byte[] decodedAudioBuffer = Base64.decode(String.valueOf(inputStream), Base64.DEFAULT);
+//
+//
+//                        wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
+//                        FileOutputStream fos = new FileOutputStream(String.valueOf(wavObj.getPath("web_audio.mp3")));
+//                        fos.write(decodedAudioBuffer);
+//                        fos.close();
+//
+//                    } catch (IOException e){
+//                        e.printStackTrace();
+//                    }
+//                }
+//            }
+//        });
+//
+//
+//        thread.start();
+
 
         if (isMicrophonePresent()) {
             getMicrophonePermission();
@@ -329,6 +399,70 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         };
 
 
+    private Emitter.Listener onNewVoice = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    String s = args[0].toString();
+                    Log.d(TAG, "Buffer data: " + s);
+
+                    wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
+                    Log.d(TAG, wavObj.getPath("web_audio.mp3"));
+
+                    String[] parts = s.split(",");
+                    String base64Data = parts[1];
+
+                    byte[] decodedAudioBuffer = Base64.decode(base64Data, Base64.DEFAULT);
+                    FileOutputStream fos = null;
+                    try {
+                        fos = new FileOutputStream(wavObj.getPath("web_audio.mp3"));
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+                        fos.write(decodedAudioBuffer);
+                        fos.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+
+//                    Log.d("AUDIO BUFFER", decodedAudioBuffer.toString());
+//                    try {
+//                        JSONObject json = new JSONObject(s);
+//                        String username = json.getString("username");
+//                        String message = json.getString("message");
+//                        String time = json.getString("time");
+//                        Log.v(TAG,username);
+//                        Log.v(TAG,time);
+//                        Log.v(TAG,message);
+//
+//                        JSONObject jsonObject = new JSONObject();
+//                        try {
+//                            jsonObject.put("name", username);
+//                            jsonObject.put("message", message);
+//                            jsonObject.put("time", time);
+//                            jsonObject.put("isSent", false);
+//                        } catch (JSONException e) {
+//                            e.printStackTrace();
+//                        }
+//
+//                        messageAdapter.addItem(jsonObject);
+//
+//                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+//
+//                    } catch (JSONException e) {
+//                        e.printStackTrace();
+//                    }
+
+                }
+            });
+        }
+    };
+
+
     
 
     @SuppressLint("ClickableViewAccessibility")
@@ -345,6 +479,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         pickMicBtn = findViewById(R.id.micBtn);
         pickCloseMicBtn = findViewById(R.id.closeMicBtn);
 
+        seekBar = findViewById(R.id.seekbar);
+        playBtn = findViewById(R.id.playBtn);
         pickVideoBtn = findViewById(R.id.videoBtn);
 
 //        playBtn = findViewById(R.id.playBtn);
@@ -358,6 +494,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
         messageEdit.addTextChangedListener(this);
+
+
 
         pickVideoBtn.setOnClickListener(v -> {
                     Log.d(TAG, "VIDEO SHOULD OPEN");
@@ -448,53 +586,17 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         });
 
 
-
-//        startTV = findViewById(R.id.recordBtn);
-//        stopTV = findViewById(R.id.stopRecordBtn);
-//        playBackTV = findViewById(R.id.playBackBtn);
-//        stopPlayBackTV = findViewById(R.id.stopPlayBackBtn);
-
-
-
-//        startTV.setOnTouchListener(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//
-//                switch (event.getAction() & MotionEvent.ACTION_MASK) {
-//                    case MotionEvent.ACTION_DOWN:
-//                        v.setPressed(true);
-//                        Toast.makeText(getApplicationContext(), "Button Pressed", Toast.LENGTH_SHORT).show();
-//                        startRecording();
-//
-//                    case MotionEvent.ACTION_UP:
-//                    case MotionEvent.ACTION_OUTSIDE:
-//                    case MotionEvent.ACTION_CANCEL:
-//                        v.setPressed(false);
-//                        Toast.makeText(getApplicationContext(), "Button Released", Toast.LENGTH_SHORT).show();
-//                        pauseRecording();
-//                        break;
-//                    case MotionEvent.ACTION_POINTER_DOWN:
-//                    case MotionEvent.ACTION_MOVE:
-//                    case MotionEvent.ACTION_POINTER_UP:
-//                        break;
-//                }
-//                return true;
-//            }
-//        });
-
+        wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
         pickMicBtn.setOnClickListener(v -> {
 
-                //pause Recording method will pause the recording of audio.
-//                startRecording();
+
             try{
-                mRecorder = new MediaRecorder();
-                mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-                mRecorder.setOutputFile(getRecordingFilePath());
-//                mRecorder.setOutputFormat(AudioFormat.ENCODING_PCM_8BIT);
-                mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-                mRecorder.prepare();
-                mRecorder.start();
+                if(checkWritePermission()) {
+                    wavObj.startRecording();
+                }
+                if(!checkWritePermission()){
+                    requestWritePermission();
+                }
                 pickMicBtn.setVisibility(View.INVISIBLE);
                 pickCloseMicBtn.setVisibility(View.VISIBLE);
                 Toast.makeText(getApplicationContext(), "Started Recording", Toast.LENGTH_SHORT).show();
@@ -506,24 +608,24 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         });
 
         pickCloseMicBtn.setOnClickListener(v -> {
-            mRecorder.stop();
-            mRecorder.release();
-            mRecorder = null;
-            //pause Recording method will pause the recording of audio.
-//            pauseRecording();
+
+
             Toast.makeText(getApplicationContext(), "Recording Finished", Toast.LENGTH_SHORT).show();
-            try {
-                sendAudio();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+
             try{
+
+                wavObj.stopRecording();
                 mPlayer = new MediaPlayer();
-                mPlayer.setDataSource(getRecordingFilePath());
+                mPlayer.setDataSource(wavObj.getPath("final_record.wav"));
                 mPlayer.prepare();
                 mPlayer.start();
                 pickMicBtn.setVisibility(View.VISIBLE);
                 pickCloseMicBtn.setVisibility(View.INVISIBLE);
+                sendAudio(wavObj);
+
+
+
+
                 Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 e.printStackTrace();
@@ -531,32 +633,18 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         });
 
-//        playBackTV.setOnClickListener(v -> {
-//            try{
-//                mPlayer = new MediaPlayer();
-//                mPlayer.setDataSource(getRecordingFilePath());
-//                mPlayer.prepare();
-//                mPlayer.start();
-//                Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//        });
-
-//        playBtn.setOnClickListener(v -> {
-//            try{
-//                mPlayer = new MediaPlayer();
-//                mPlayer.setDataSource(getRecordingFilePath());
-//                mPlayer.prepare();
-//                mPlayer.start();
-//                Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//        });
-
     }
 
+
+
+    private boolean checkWritePermission() {
+        int result1 = ContextCompat.checkSelfPermission(getApplicationContext(), WRITE_EXTERNAL_STORAGE);
+        int result2 = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.RECORD_AUDIO);
+        return result1 == PackageManager.PERMISSION_GRANTED && result2 == PackageManager.PERMISSION_GRANTED ;
+    }
+    private void requestWritePermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO,Manifest.permission.MODIFY_AUDIO_SETTINGS,WRITE_EXTERNAL_STORAGE},1);
+    }
 
     // NOT
     @Override
@@ -579,130 +667,55 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
-    private static byte[] getBytesFromInputStream(InputStream is) throws IOException {
-        ByteArrayOutputStream os = new ByteArrayOutputStream();
-        byte[] buffer = new byte[4];
+    private void sendAudio(wavClass wavObj) throws IOException {
 
-        boolean print = true;
-        for (int len = is.read(buffer); len != -1; len = is.read(buffer)) {
-            if (print) {
-                System.out.println("Stream buffer contains: " + buffer[0] + " " + buffer[1] + " " + buffer[2] + " " + buffer[3]);
-                print = false;
-            }
-            System.out.println("length of buffer: " + len );
+        File file = new File(wavObj.getPath("final_record.wav"));
 
+        long currentTime = System.currentTimeMillis();
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] randomNumber = new byte[8];
+        secureRandom.nextBytes(randomNumber);
+        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+        bb.putLong(currentTime);
+        bb.put(randomNumber);
+        UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+        String id = uniqueId.toString();
 
-//            System.out.println("Stream buffer 1st: " + buffer[0].getClass() );
+        URL url = new URL("http://172.20.10.10:3333/echo/uploads");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "audio/wav");
+        connection.setRequestProperty("id", id);
 
-            os.write(buffer, 0, len);
-//            System.out.println("Stream DATA buffer size 10000: " + os );
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            byte[] audioData = Files.readAllBytes(file.toPath());
+
+            OutputStream os = connection.getOutputStream();
+            os.write(audioData);
+            os.flush();
+            os.close();
         }
 
-
-//        System.out.println("Stream DATA buffer: " + os );
-//        System.out.println("Stream DATA buffer to byte array in memory: " + os.toByteArray() );
-        System.out.println("Stream Data Test: " + os );
-
-
-        os.flush();
-        System.out.println("Size of output stream: " + os.size());
-
-        return os.toByteArray();
-    }
-
-    private void sendAudio() throws IOException {
-        File file = new File(getRecordingFilePath());
-////        byte[] myByteArray = new byte[];
-//
-//            String path = getRecordingFilePath(); // Audio File path
-//            InputStream inputStream = new FileInputStream(path);
-//            byte[] myByteArray = new byte[(int) 1000];
-//            inputStream.read(myByteArray, 0, 100);
-//
-//        OkHttpClient client = new OkHttpClient();
-//        Log.d("HTTP AUDIO", "File Name: " + file);
-//        Log.d("HTTP AUDIO", "CALLED ACTUAL REQUEST");
-//        String url = "http://172.20.10.10:3333/uploadFile";
-//
-//        RequestBody body = new MultipartBody.Builder()
-//                .setType(MultipartBody.FORM)
-//                .addFormDataPart("audio", file.getName(),
-//                    RequestBody.create(MediaType.parse("multipart/form-data"), file))
-//                .build();
-//
-//        Request request = new Request.Builder()
-//                .url(url)
-//                .post(body)
-//                .build();
-//
-//        try {
-//            Response response = client
-//                    .newCall(request).execute();
-//            Log.d("HTTP AUDIO", "Response Successful");
-//            Log.d("HTTP AUDIO", response.body().string());
-//
-//
-//        } catch (IOException e){
-//            Log.d("HTTP AUDIO", "Exception occured: " + e.toString());
-//
-//            e.printStackTrace();
-//        }
-
-
-
-
+        int responseCode = connection.getResponseCode();
+        System.out.println("Response Code: " + responseCode);
 
         try {
-            String path = getRecordingFilePath(); // Audio File path
-            InputStream inputStream = new FileInputStream(path);
-            byte[] myByteArray = getBytesFromInputStream(inputStream);
-            System.out.println("1st array of full os: " + myByteArray[0]+" " + myByteArray[1] + " " +myByteArray[2] + " " + myByteArray[3]);
-
-
-            // ...
-            // unpack stream buffer
-            int currentPositionInArray = 0;
-            for (byte b : myByteArray) {
-
-                JSONObject jsonObject = new JSONObject();
-
-
-                jsonObject.put("name", name);
-                jsonObject.put("audioByte",(char)(b & 0xFF));
-
-                // Check whether the current byte is the last byte in the array
-                boolean stoppingFlag = (currentPositionInArray == myByteArray.length - 1);
-                jsonObject.put("isLastByte", stoppingFlag);
-
-                mSocket.emit("send_audio",jsonObject.toString());
-
-                currentPositionInArray++;
-//                jsonObject.put("time", datetime);
-//                jsonObject.put("path", getRecordingFilePath());
-
-//                jsonObject.put("isSent", true);
-
-
-                // Print the byte
-//                System.out.println("Unpacking Stream DATA buffer: " + (char)b);
-            }
-            currentTime = Calendar.getInstance().getTime();
+            currTime = Calendar.getInstance().getTime();
             String format = "KK:mm";
             DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-            String datetime = simpleDateFormat.format(currentTime);
+            String datetime = simpleDateFormat.format(currTime);
 
-            JSONObject jsonObject1 = new JSONObject();
-            jsonObject1.put("name", name);
-            jsonObject1.put("time", datetime);
-            jsonObject1.put("isSent", true);
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("name", name);
+            jsonObject.put("id",id);
+            jsonObject.put("time", datetime);
+            jsonObject.put("isSent", true);
+            mSocket.emit("send_audio", jsonObject.toString());
 
-            messageAdapter.addItem(jsonObject1);
+            messageAdapter.addItem(jsonObject);
 
             recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-
-
-
-
 
         } catch (JSONException e) {
             e.printStackTrace();
@@ -765,17 +778,32 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
 
-    private String getRecordingFilePath() {
-        ContextWrapper contextWrapper = new ContextWrapper(getApplicationContext());
-        File musicDirectory = contextWrapper.getExternalFilesDir(Environment.DIRECTORY_DCIM);
-        File file = new File(musicDirectory, "testRecordingFile" + ".3gp");
-        System.out.println("filepath: " + file);
-        return file.getPath();
-    }
 
-
-
-
+//        startTV.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View v, MotionEvent event) {
+//
+//                switch (event.getAction() & MotionEvent.ACTION_MASK) {
+//                    case MotionEvent.ACTION_DOWN:
+//                        v.setPressed(true);
+//                        Toast.makeText(getApplicationContext(), "Button Pressed", Toast.LENGTH_SHORT).show();
+//                        startRecording();
+//
+//                    case MotionEvent.ACTION_UP:
+//                    case MotionEvent.ACTION_OUTSIDE:
+//                    case MotionEvent.ACTION_CANCEL:
+//                        v.setPressed(false);
+//                        Toast.makeText(getApplicationContext(), "Button Released", Toast.LENGTH_SHORT).show();
+//                        pauseRecording();
+//                        break;
+//                    case MotionEvent.ACTION_POINTER_DOWN:
+//                    case MotionEvent.ACTION_MOVE:
+//                    case MotionEvent.ACTION_POINTER_UP:
+//                        break;
+//                }
+//                return true;
+//            }
+//        });
 
 
 }
