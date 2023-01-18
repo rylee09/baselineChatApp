@@ -58,6 +58,7 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.security.SecureRandom;
+import java.sql.SQLOutput;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -219,7 +220,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-            mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
+//            mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
+            mSocket = IO.socket(URI.create("http://172.20.10.4:3333/chat"));
             mSocket.connect();
 
 
@@ -241,35 +243,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         }
 
         initializeView();
-
-//        Thread thread = new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                while (true) {
-//                    try {
-//                        URL url2 = new URL("http://172.20.10.10:3333/endpoint");
-//                        HttpURLConnection connection = (HttpURLConnection) url2.openConnection();
-//                        connection.setRequestMethod("POST");
-//
-//                        InputStream inputStream = new BufferedInputStream(connection.getInputStream());
-//
-//                        byte[] decodedAudioBuffer = Base64.decode(String.valueOf(inputStream), Base64.DEFAULT);
-//
-//
-//                        wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
-//                        FileOutputStream fos = new FileOutputStream(String.valueOf(wavObj.getPath("web_audio.mp3")));
-//                        fos.write(decodedAudioBuffer);
-//                        fos.close();
-//
-//                    } catch (IOException e){
-//                        e.printStackTrace();
-//                    }
-//                }
-//            }
-//        });
-//
-//
-//        thread.start();
 
 
         if (isMicrophonePresent()) {
@@ -405,57 +378,70 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    
+                    
                     String s = args[0].toString();
                     Log.d(TAG, "Buffer data: " + s);
 
-                    wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
-                    Log.d(TAG, wavObj.getPath("web_audio.mp3"));
+                    JSONObject json = null;
+                    String base64 = null;
+                    String name = null;
+                    String time = null;
+                    String id = null;
+//                    String path = null;
+                    try {
+                        json = new JSONObject(s);
+                        base64 = json.getString("audioB64Str");
+                        name = json.getString("senderName");
+                        time = json.getString("time");
+                        id = json.getString("id");
 
-                    String[] parts = s.split(",");
+                        System.out.println(base64);
+                        System.out.println(name);
+                        System.out.println(time);
+                        System.out.println(id);
+//                        String message = json.getString("message");
+//                        String time = json.getString("time");
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    
+                    
+                    wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
+                    Log.d(TAG, wavObj.getPath(id + ".mp3"));
+
+                    String[] parts = base64.split(",");
                     String base64Data = parts[1];
 
                     byte[] decodedAudioBuffer = Base64.decode(base64Data, Base64.DEFAULT);
                     FileOutputStream fos = null;
                     try {
-                        fos = new FileOutputStream(wavObj.getPath("web_audio.mp3"));
+                        fos = new FileOutputStream(wavObj.getPath(id + ".mp3"));
                     } catch (FileNotFoundException e) {
                         e.printStackTrace();
                     }
                     try {
                         fos.write(decodedAudioBuffer);
                         fos.close();
+
+                        JSONObject jsonObject = new JSONObject();
+                        try {
+                            jsonObject.put("name", name);
+                            jsonObject.put("audioPath",wavObj.getPath(id + ".mp3"));
+//                            jsonObject.put("time", time);
+                            jsonObject.put("id",id);
+                            jsonObject.put("isSent", false);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+
+                        messageAdapter.addItem(jsonObject);
+
+                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-
-
-//                    Log.d("AUDIO BUFFER", decodedAudioBuffer.toString());
-//                    try {
-//                        JSONObject json = new JSONObject(s);
-//                        String username = json.getString("username");
-//                        String message = json.getString("message");
-//                        String time = json.getString("time");
-//                        Log.v(TAG,username);
-//                        Log.v(TAG,time);
-//                        Log.v(TAG,message);
-//
-//                        JSONObject jsonObject = new JSONObject();
-//                        try {
-//                            jsonObject.put("name", username);
-//                            jsonObject.put("message", message);
-//                            jsonObject.put("time", time);
-//                            jsonObject.put("isSent", false);
-//                        } catch (JSONException e) {
-//                            e.printStackTrace();
-//                        }
-//
-//                        messageAdapter.addItem(jsonObject);
-//
-//                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-//
-//                    } catch (JSONException e) {
-//                        e.printStackTrace();
-//                    }
 
                 }
             });
@@ -499,15 +485,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         pickVideoBtn.setOnClickListener(v -> {
                     Log.d(TAG, "VIDEO SHOULD OPEN");
-//                    Intent i = new Intent(getApplicationContext(),ChatActivity.class);
-//                    startActivity(i);
                     Intent intent = new Intent(this, VideoActivity.class);
-////                    intent.putExtra("name", editText.getText().toString());
                     startActivity(intent);
-//
-//                    binding = DataBindingUtil.setContentView(this, R.layout.video_call);
-//                    setSupportActionBar(binding.toolbar);
-//                    startActivity(new Intent(this, VideoActivity.class));
 
                 }
                     );
@@ -526,14 +505,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             JSONObject mobile = new JSONObject();
             try {
 
-
-//                String message = messageEdit.getText().toString().trim();
-
-//                if (TextUtils.isEmpty(message)) {
-//                    return;
-//                }
-//                JSONObject jsonObject = new JSONObject();
-//                jsonObject.put("time",currentTime );
                 jsonObject.put("username", name);
                 jsonObject.put("message", messageEdit.getText().toString());
                 jsonObject.put("time",datetime);
@@ -542,31 +513,17 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 mobile.put("name", name);
                 mobile.put("message",messageEdit.getText().toString());
                 mobile.put("time",datetime);
-//                mobile.put("time",currentTime );
                 mobile.put("isSent", true);
 
                 messageAdapter.addItem(mobile);
                 messageEdit.setText("");
                 mSocket.emit("send_message",jsonObject.toString());
 
-//                messageAdapter.addItem(jsonObject);
 
                 recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
 
                 resetMessageEdit();
 
-
-//                jsonObject.put("name", name);
-//                jsonObject.put("message", messageEdit.getText().toString());
-//
-//                webSocket.send(jsonObject.toString());
-//
-//                jsonObject.put("isSent", true);
-//                messageAdapter.addItem(jsonObject);
-//
-//                recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-//
-//                resetMessageEdit();
 
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -681,7 +638,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
         String id = uniqueId.toString();
 
-        URL url = new URL("http://172.20.10.10:3333/echo/uploads");
+        URL url = new URL("http://172.20.10.4:3333/echo/uploads");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);

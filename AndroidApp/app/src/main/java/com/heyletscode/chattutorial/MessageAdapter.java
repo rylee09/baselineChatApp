@@ -3,6 +3,7 @@ package com.heyletscode.chattutorial;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
+import android.media.MediaPlayer;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +18,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.w3c.dom.Text;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +30,8 @@ public class MessageAdapter extends RecyclerView.Adapter {
     private static final int TYPE_IMAGE_RECEIVED = 3;
     private static final int TYPE_AUDIO_SENT = 4;
     private static final int TYPE_AUDIO_RECEIVED = 5;
+
+    private MediaPlayer mPlayer = new MediaPlayer();
 
     private LayoutInflater inflater;
     private List<JSONObject> messages = new ArrayList<>();
@@ -249,7 +253,22 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     ReceivedAudioHolder audioHolder = (ReceivedAudioHolder) holder;
                     audioHolder.audioView.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
-                    audioHolder.timeTxt.setText(message.getString("time"));
+
+
+                    audioHolder.audioView.setOnClickListener(v -> {
+                        try {
+                            System.out.println(message.getString("id"));
+                            mPlayer = new MediaPlayer();
+                            mPlayer.setDataSource((String) message.get("audioPath"));
+                            mPlayer.prepare();
+                            mPlayer.start();
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+//                    audioHolder.timeTxt.setText(message.getString("time"));
                 }
 
             }
