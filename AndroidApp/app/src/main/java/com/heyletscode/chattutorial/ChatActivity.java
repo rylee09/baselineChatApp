@@ -220,8 +220,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-//            mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
             mSocket = IO.socket(URI.create("http://172.20.10.4:3333/chat"));
+//            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
             mSocket.connect();
 
 
@@ -428,7 +428,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                         try {
                             jsonObject.put("name", name);
                             jsonObject.put("audioPath",wavObj.getPath(id + ".mp3"));
-//                            jsonObject.put("time", time);
+                            jsonObject.put("time", time);
                             jsonObject.put("id",id);
                             jsonObject.put("isSent", false);
                         } catch (JSONException e) {
