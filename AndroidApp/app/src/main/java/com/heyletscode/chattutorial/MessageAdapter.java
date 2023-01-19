@@ -104,7 +104,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
         public ReceivedImageHolder(@NonNull View itemView) {
             super(itemView);
 
-            imageView = itemView.findViewById(R.id.imageView);
+            imageView = itemView.findViewById(R.id.receiveImageView);
             nameTxt = itemView.findViewById(R.id.nameTxt);
             timeTxt = itemView.findViewById(R.id.dateTxt);
 

@@ -126,7 +126,7 @@ public class VideoActivity extends AppCompatActivity{
     private void connectToSignallingServer() {
         // For me this was "http://192.168.1.220:3000";
         // $ hostname -I
-        String URL = "http://172.20.10.10:3333/video";
+        String URL = "http://192.168.6.138:3333/video";
         Log.e(TAG, "REPLACE ME: IO Socket:" + URL);
         socket = IO.socket(URI.create("http://172.20.10.10:3333/video"));
         socket.connect();
