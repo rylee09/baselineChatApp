@@ -4,11 +4,13 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
+import android.os.Handler;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -21,6 +23,7 @@ import org.w3c.dom.Text;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.LogRecord;
 
 public class MessageAdapter extends RecyclerView.Adapter {
 
@@ -113,15 +116,19 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
     private class ReceivedAudioHolder extends RecyclerView.ViewHolder {
 
-        ImageView audioView;
+        ImageView playBtn, pauseBtn;
+        SeekBar seekBar;
         TextView nameTxt, timeTxt;
 
         public ReceivedAudioHolder(@NonNull View itemView) {
             super(itemView);
 
-            audioView = itemView.findViewById(R.id.playBtn);
+            playBtn = itemView.findViewById(R.id.playBtn);
+            pauseBtn = itemView.findViewById(R.id.pauseBtn);
+            seekBar = itemView.findViewById(R.id.seekbar);
+
             nameTxt = itemView.findViewById(R.id.nameTxt);
-            timeTxt = itemView.findViewById(R.id.dateTxt);
+            timeTxt = itemView.findViewById(R.id.timeTxt);
 
 
         }
@@ -251,24 +258,57 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                 } else {
                     ReceivedAudioHolder audioHolder = (ReceivedAudioHolder) holder;
-                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
+                    audioHolder.playBtn.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
+                    audioHolder.timeTxt.setText(message.getString("time"));
+
+                    try {
+                        System.out.println(message.getString("id"));
+                        mPlayer = new MediaPlayer();
+                        mPlayer.setDataSource((String) message.get("audioPath"));
+                        mPlayer.prepare();
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    mPlayer.setOnCompletionListener(v -> {
+                        audioHolder.playBtn.setVisibility(View.VISIBLE);
+                        audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
+                        audioHolder.seekBar.setProgress(0);
+                    } );
 
 
-                    audioHolder.audioView.setOnClickListener(v -> {
-                        try {
-                            System.out.println(message.getString("id"));
-                            mPlayer = new MediaPlayer();
-                            mPlayer.setDataSource((String) message.get("audioPath"));
-                            mPlayer.prepare();
-                            mPlayer.start();
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
+
+                    audioHolder.playBtn.setOnClickListener(v -> {
+                        mPlayer.start();
+                        audioHolder.playBtn.setVisibility(View.INVISIBLE);
+                        audioHolder.pauseBtn.setVisibility(View.VISIBLE);
                     });
-//                    audioHolder.timeTxt.setText(message.getString("time"));
+
+                    audioHolder.pauseBtn.setOnClickListener(v -> {
+                        mPlayer.pause();
+                        audioHolder.playBtn.setVisibility(View.VISIBLE);
+                        audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
+                    });
+
+                    audioHolder.seekBar.setMax(mPlayer.getDuration());
+
+
+                    final Handler handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            int currentPosition = mPlayer.getCurrentPosition();
+                            audioHolder.seekBar.setProgress(currentPosition);
+                            handler.postDelayed(this,50);
+                        }
+                    }, 50);
+
+
+
                 }
 
             }
