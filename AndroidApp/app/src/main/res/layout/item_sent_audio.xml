@@ -29,6 +29,19 @@
         android:text="24:00" />
 
     <ImageView
+        android:id="@+id/pauseBtn"
+        android:layout_width="39dp"
+
+        android:layout_height="43dp"
+        android:layout_below="@id/sentNameTxt"
+        android:layout_marginTop="-9dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="4dp"
+        android:layout_toLeftOf="@+id/seekbar"
+        android:src="@drawable/ic_baseline_pause_circle_outline_24"
+        android:visibility="invisible" />
+
+    <ImageView
         android:id="@+id/playBtn"
         android:layout_width="39dp"
 
@@ -41,6 +54,9 @@
         android:src="@drawable/ic_baseline_play_circle_outline_24"
         android:visibility="visible" />
 
+
+
+
     <SeekBar
         android:id="@+id/seekbar"
         android:layout_width="238dp"
@@ -49,6 +65,7 @@
         android:progress="0"
         android:layout_alignParentEnd="true"
         android:layout_below="@id/sentNameTxt"
+        android:visibility="invisible"
         />
 
 

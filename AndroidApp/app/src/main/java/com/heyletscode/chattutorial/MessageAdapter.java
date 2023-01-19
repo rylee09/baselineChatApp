@@ -4,6 +4,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
+import android.os.Environment;
 import android.os.Handler;
 import android.util.Base64;
 import android.view.LayoutInflater;
@@ -72,13 +73,17 @@ public class MessageAdapter extends RecyclerView.Adapter {
     }
 
     private class SentAudioHolder extends RecyclerView.ViewHolder {
-        ImageView audioView;
+        ImageView playBtn, pauseBtn;
+        SeekBar seekBar;
         TextView nameTxt, timeTxt;
 
         public SentAudioHolder(@NonNull View itemView) {
             super(itemView);
 
-            audioView = itemView.findViewById(R.id.playBtn);
+            playBtn = itemView.findViewById(R.id.playBtn);
+            pauseBtn = itemView.findViewById(R.id.pauseBtn);
+            seekBar = itemView.findViewById(R.id.seekbar);
+
             nameTxt = itemView.findViewById(R.id.sentNameTxt);
             timeTxt = itemView.findViewById(R.id.sentDateTxt);
 
@@ -233,9 +238,99 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                 } else {
                     SentAudioHolder audioHolder = (SentAudioHolder) holder;
-                    audioHolder.audioView.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
+                    audioHolder.playBtn.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
                     audioHolder.timeTxt.setText(message.getString("time"));
+
+                    wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
+
+
+
+
+
+
+                    audioHolder.playBtn.setOnClickListener(v -> {
+                        try {
+//                        System.out.println((String) message.getString("id"));
+                            mPlayer = new MediaPlayer();
+                            // testing
+//                        mPlayer.setDataSource(wavObj.getPath("final_record.wav"));
+
+                            mPlayer.setDataSource((String) message.get("audioPath"));
+                            mPlayer.prepare();
+                            mPlayer.start();
+                            System.out.println("max duration of recording is: " + mPlayer.getDuration());
+
+                            audioHolder.playBtn.setVisibility(View.INVISIBLE);
+                            audioHolder.pauseBtn.setVisibility(View.VISIBLE);
+                            audioHolder.seekBar.setVisibility(View.VISIBLE);
+
+                            mPlayer.setOnCompletionListener(z -> {
+                                audioHolder.playBtn.setVisibility(View.VISIBLE);
+                                audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
+                                audioHolder.seekBar.setVisibility(View.INVISIBLE);
+//                                audioHolder.seekBar.setProgress(0);
+                                mPlayer.stop();
+                                mPlayer.reset();
+
+
+
+                            } );
+
+
+
+
+                            audioHolder.pauseBtn.setOnClickListener(w -> {
+                                mPlayer.pause();
+                                audioHolder.playBtn.setVisibility(View.VISIBLE);
+                                audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
+                            });
+
+
+                            audioHolder.seekBar.setMax(mPlayer.getDuration());
+                            audioHolder.seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                                @Override
+                                public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                                    if(b) {
+                                        mPlayer.seekTo(i);
+                                    }
+                                }
+
+                                @Override
+                                public void onStartTrackingTouch(SeekBar seekBar) {
+
+                                }
+
+                                @Override
+                                public void onStopTrackingTouch(SeekBar seekBar) {
+
+                                }
+                            });
+
+
+
+                            final Handler handler = new Handler();
+                            handler.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    int currentPosition = mPlayer.getCurrentPosition();
+                                    audioHolder.seekBar.setProgress(currentPosition);
+                                    handler.postDelayed(this,50);
+                                }
+                            }, 50);
+
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                    });
+
+
+
+
                 }
 
             } else {
@@ -262,11 +357,73 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     audioHolder.nameTxt.setText(message.getString("name"));
                     audioHolder.timeTxt.setText(message.getString("time"));
 
+//                    wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
+
+//                    System.out.println(wavObj.getPath("hello.wav"));
+
+
                     try {
                         System.out.println(message.getString("id"));
                         mPlayer = new MediaPlayer();
+                        // testing
+//                        mPlayer.setDataSource(wavObj.getPath("final_record.wav"));
+
                         mPlayer.setDataSource((String) message.get("audioPath"));
                         mPlayer.prepare();
+
+
+                        mPlayer.setOnCompletionListener(v -> {
+                            audioHolder.playBtn.setVisibility(View.VISIBLE);
+                            audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
+                            audioHolder.seekBar.setProgress(0);
+                        } );
+
+
+
+                        audioHolder.playBtn.setOnClickListener(v -> {
+                            mPlayer.start();
+                            System.out.println("max duration of recording is: " + mPlayer.getDuration());
+
+                            audioHolder.playBtn.setVisibility(View.INVISIBLE);
+                            audioHolder.pauseBtn.setVisibility(View.VISIBLE);
+                        });
+
+                        audioHolder.pauseBtn.setOnClickListener(v -> {
+                            mPlayer.pause();
+                            audioHolder.playBtn.setVisibility(View.VISIBLE);
+                            audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
+                        });
+
+
+                        audioHolder.seekBar.setMax(mPlayer.getDuration());
+                        audioHolder.seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                            @Override
+                            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+                                if(b) {
+                                    mPlayer.seekTo(i);
+                                }
+                            }
+
+                            @Override
+                            public void onStartTrackingTouch(SeekBar seekBar) {
+
+                            }
+
+                            @Override
+                            public void onStopTrackingTouch(SeekBar seekBar) {
+
+                            }
+                        });
+
+                        final Handler handler = new Handler();
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                int currentPosition = mPlayer.getCurrentPosition();
+                                audioHolder.seekBar.setProgress(currentPosition);
+                                handler.postDelayed(this,50);
+                            }
+                        }, 50);
 
                     } catch (JSONException e) {
                         e.printStackTrace();
@@ -274,38 +431,6 @@ public class MessageAdapter extends RecyclerView.Adapter {
                         e.printStackTrace();
                     }
 
-                    mPlayer.setOnCompletionListener(v -> {
-                        audioHolder.playBtn.setVisibility(View.VISIBLE);
-                        audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
-                        audioHolder.seekBar.setProgress(0);
-                    } );
-
-
-
-                    audioHolder.playBtn.setOnClickListener(v -> {
-                        mPlayer.start();
-                        audioHolder.playBtn.setVisibility(View.INVISIBLE);
-                        audioHolder.pauseBtn.setVisibility(View.VISIBLE);
-                    });
-
-                    audioHolder.pauseBtn.setOnClickListener(v -> {
-                        mPlayer.pause();
-                        audioHolder.playBtn.setVisibility(View.VISIBLE);
-                        audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
-                    });
-
-                    audioHolder.seekBar.setMax(mPlayer.getDuration());
-
-
-                    final Handler handler = new Handler();
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            int currentPosition = mPlayer.getCurrentPosition();
-                            audioHolder.seekBar.setProgress(currentPosition);
-                            handler.postDelayed(this,50);
-                        }
-                    }, 50);
 
 
 

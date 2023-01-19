@@ -571,14 +571,23 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
             try{
 
-                wavObj.stopRecording();
-                mPlayer = new MediaPlayer();
-                mPlayer.setDataSource(wavObj.getPath("final_record.wav"));
-                mPlayer.prepare();
-                mPlayer.start();
+                long currentTime = System.currentTimeMillis();
+                SecureRandom secureRandom = new SecureRandom();
+                byte[] randomNumber = new byte[8];
+                secureRandom.nextBytes(randomNumber);
+                ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                bb.putLong(currentTime);
+                bb.put(randomNumber);
+                UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+                String id = uniqueId.toString();
+
+                wavObj.stopRecording(id);
+//
                 pickMicBtn.setVisibility(View.VISIBLE);
                 pickCloseMicBtn.setVisibility(View.INVISIBLE);
-                sendAudio(wavObj);
+
+
+                sendAudio(wavObj,id);
 
 
 
@@ -624,9 +633,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
-    private void sendAudio(wavClass wavObj) throws IOException {
+    private void sendAudio(wavClass wavObj, String idWav) throws IOException {
 
-        File file = new File(wavObj.getPath("final_record.wav"));
+        File file = new File(wavObj.getPath(idWav + ".wav"));
 
         long currentTime = System.currentTimeMillis();
         SecureRandom secureRandom = new SecureRandom();
@@ -666,7 +675,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("name", name);
             jsonObject.put("id",id);
+            jsonObject.put("audioPath", wavObj.getPath(idWav + ".wav"));
             jsonObject.put("time", datetime);
+//            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
             jsonObject.put("isSent", true);
             mSocket.emit("send_audio", jsonObject.toString());
 

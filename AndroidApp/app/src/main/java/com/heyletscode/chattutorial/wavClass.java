@@ -7,6 +7,9 @@ import android.media.MediaRecorder;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.security.SecureRandom;
+import java.util.UUID;
 
 public class wavClass {
     String filePath = null;
@@ -151,7 +154,7 @@ public class wavClass {
             e.printStackTrace();
         }
     }
-    public void stopRecording(){
+    public void stopRecording(String id){
         try{
             if(recorder != null) {
                 isRecording = false;
@@ -161,7 +164,11 @@ public class wavClass {
                 }
                 recorder.release();
                 recordingThread = null;
-                createWavFile(getPath(tempRawFile),getPath(tempWavFile));
+
+
+                createWavFile(getPath(tempRawFile),getPath(
+                        id + ".wav"
+                ));
             }
         }
         catch (Exception e){
