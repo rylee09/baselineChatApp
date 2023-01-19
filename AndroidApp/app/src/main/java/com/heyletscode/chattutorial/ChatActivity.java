@@ -193,7 +193,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     //    {
 //    Glenn
-//        socket = IO.socket(URI.create("http://192.168.1.239:3333"));
+//        socket = IO.socket(URI.create("http://192.168.6.138:3333"));
 //        mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
 //    }
 
@@ -220,7 +220,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-            mSocket = IO.socket(URI.create("http://172.20.10.4:3333/chat"));
+            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
 //            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
             mSocket.connect();
 
@@ -317,7 +317,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                         mobileObject.put("name",name);
                         mobileObject.put("image", image);
                         mobileObject.put("time",time);
-                        mobileObject.put("isSent", true);
+                        mobileObject.put("isSent", false);
                         messageAdapter.addItem(mobileObject);
 
                         recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
@@ -638,7 +638,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
         String id = uniqueId.toString();
 
-        URL url = new URL("http://172.20.10.4:3333/echo/uploads");
+        URL url = new URL("http://192.168.6.138:3333/echo/uploads");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
