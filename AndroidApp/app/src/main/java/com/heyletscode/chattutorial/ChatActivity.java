@@ -211,6 +211,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         audioData = new short [bufferSize]; //short array that pcm data is put into.
 
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
+
+
         if (android.os.Build.VERSION.SDK_INT > 9)
         {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
@@ -220,8 +225,10 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             Log.d(TAG, "Before socket connection");
 //            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
+//            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
 //            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
+              mSocket = IO.socket(URI.create("http://172.20.10.4:3333/chat"));
+
             mSocket.connect();
 
 
@@ -647,7 +654,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
         String id = uniqueId.toString();
 
-        URL url = new URL("http://192.168.6.138:3333/echo/uploads");
+        URL url = new URL("http://172.20.10.4:3333/echo/uploads");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
