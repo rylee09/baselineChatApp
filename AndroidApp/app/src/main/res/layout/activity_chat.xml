@@ -84,7 +84,8 @@
         android:layout_toEndOf="@id/messageEdit"
         android:layout_alignParentBottom="true"
 
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="16dp"
+        android:visibility="invisible"/>
 
 <Button
     android:id="@+id/videoBtn"

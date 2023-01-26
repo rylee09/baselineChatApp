@@ -244,11 +244,6 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                     wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
 
-
-
-
-
-
                     audioHolder.playBtn.setOnClickListener(v -> {
                         try {
 //                        System.out.println((String) message.getString("id"));
@@ -375,7 +370,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
                         mPlayer.setOnCompletionListener(v -> {
                             audioHolder.playBtn.setVisibility(View.VISIBLE);
                             audioHolder.pauseBtn.setVisibility(View.INVISIBLE);
-                            audioHolder.seekBar.setProgress(0);
+                            audioHolder.seekBar.setProgress(View.VISIBLE);
                         } );
 
 
