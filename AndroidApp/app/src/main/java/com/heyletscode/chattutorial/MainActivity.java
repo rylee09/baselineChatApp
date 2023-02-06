@@ -150,6 +150,11 @@ public class MainActivity extends AppCompatActivity implements TextWatcher {
 
 
     private String username;
+
+    private String ip;
+    private String port;
+
+    private String protocol;
     private Socket mSocket;
 
 
@@ -180,7 +185,9 @@ public class MainActivity extends AppCompatActivity implements TextWatcher {
 
         Intent intent = getIntent();
         username = intent.getStringExtra("username");
-
+        ip = intent.getStringExtra("ip");
+        port = intent.getStringExtra("port");
+        protocol = intent.getStringExtra("protocol");
 
 
 
@@ -205,7 +212,8 @@ public class MainActivity extends AppCompatActivity implements TextWatcher {
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
 //            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
 //            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
-            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
+            mSocket = IO.socket(URI.create(protocol + "://" + ip + ":" + port + "/chat"));
+//            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
 
             mSocket.connect();
 
@@ -632,7 +640,9 @@ public class MainActivity extends AppCompatActivity implements TextWatcher {
         UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
         String id = uniqueId.toString();
 
-        URL url = new URL("http://172.20.10.2:3333/echo/uploads");
+//        "http://172.20.10.2:3333/echo/uploads"
+
+        URL url = new URL(protocol + "://" + ip + ":" + port + "/echo/uploads");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
