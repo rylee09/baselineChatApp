@@ -100,6 +100,8 @@ import java.util.UUID;
 public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
+
+
     private static final int RECORDER_BPP = 16;
     private static final String AUDIO_RECORDER_FILE_EXT_WAV = ".wav";
     private static final String AUDIO_RECORDER_FOLDER = "AudioRecorder";
@@ -123,7 +125,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //    private VideoCallBinding binding;
 
     private static final String TAG = "ChatActivity";
-    private String name;
     private io.socket.client.Socket socket;
     private Calendar cal = Calendar.getInstance(Locale.ENGLISH);
     private Date currentTime;
@@ -135,7 +136,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     private View sendBtn;
     private ImageView pickImgBtn;
-//    private FrameLayout cameraPreview;
+    //    private FrameLayout cameraPreview;
     private ImageView pickMicBtn, pickCloseMicBtn, playBtn;
     private ImageView pickCameraBtn;
     private Button pickVideoBtn;
@@ -181,7 +182,14 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //    }
 
 
+    private String username;
 
+    private String ip;
+    private String port;
+
+    private String friendList;
+
+    private String protocol;
     private Socket mSocket;
 
 
@@ -199,12 +207,24 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
 
-
     @Override
-    public void onCreate(Bundle savedInstanceState){
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+//        setContentView(R.layout.activity_main);
         setContentView(R.layout.activity_chat);
-        name = getIntent().getStringExtra("name");
+
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
+
+        Intent intent = getIntent();
+//        username = intent.getStringExtra("username");
+//        ip = intent.getStringExtra("ip");
+//        port = intent.getStringExtra("port");
+//        protocol = intent.getStringExtra("protocol");
+
+
 
         bufferSize = AudioRecord.getMinBufferSize
                 (RECORDER_SAMPLERATE,RECORDER_CHANNELS,RECORDER_AUDIO_ENCODING)*3;
@@ -227,8 +247,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
 //            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
 //            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
-//              mSocket = IO.socket(URI.create("http://172.20.10.4:3333/chat"));
-            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
+            mSocket = IO.socket(URI.create(protocol + "://" + ip + ":" + port + "/chat"));
+//            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
 
             mSocket.connect();
 
@@ -236,9 +256,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
             if (mSocket.connected()){
                 Log.d(TAG, "connected");
-             } else {
-            Log.d(TAG, "Not connected");
-        }
+            } else {
+                Log.d(TAG, "Not connected");
+            }
             mSocket.emit("join_room","123");
             if (mSocket.connected()) {
                 Log.d(TAG, "SOCKET IS CONNECTEd");
@@ -295,7 +315,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         sendBtn.setVisibility(View.INVISIBLE);
         pickImgBtn.setVisibility(View.VISIBLE);
         pickMicBtn.setVisibility(View.VISIBLE);
-        pickCameraBtn.setVisibility(View.VISIBLE);
+        pickCameraBtn.setVisibility(View.INVISIBLE);
 
         messageEdit.addTextChangedListener(this);
 
@@ -332,7 +352,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                     } catch (JSONException e){
                         e.printStackTrace();
                     }
-                    }
+                }
 
             });
         }
@@ -340,23 +360,23 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
-            @Override
-            public void call(Object... args) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        String s = args[0].toString();
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    String s = args[0].toString();
 
-                        try {
-                            JSONObject json = new JSONObject(s);
-                            String username = json.getString("username");
-                            String message = json.getString("message");
-                            String time = json.getString("time");
-                            Log.v(TAG,username);
-                            Log.v(TAG,time);
-                            Log.v(TAG,message);
+                    try {
+                        JSONObject json = new JSONObject(s);
+                        String username = json.getString("username");
+                        String message = json.getString("message");
+                        String time = json.getString("time");
+                        Log.v(TAG,username);
+                        Log.v(TAG,time);
+                        Log.v(TAG,message);
 
-                            JSONObject jsonObject = new JSONObject();
+                        JSONObject jsonObject = new JSONObject();
                         try {
                             jsonObject.put("name", username);
                             jsonObject.put("message", message);
@@ -366,18 +386,18 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                             e.printStackTrace();
                         }
 
-                            messageAdapter.addItem(jsonObject);
+                        messageAdapter.addItem(jsonObject);
 
-                            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
 
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-
+                    } catch (JSONException e) {
+                        e.printStackTrace();
                     }
-                });
-            }
-        };
+
+                }
+            });
+        }
+    };
 
 
     private Emitter.Listener onNewVoice = new Emitter.Listener() {
@@ -386,8 +406,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
-                    
-                    
+
+
                     String s = args[0].toString();
                     Log.d(TAG, "Buffer data: " + s);
 
@@ -413,8 +433,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
-                    
-                    
+
+
                     wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
                     Log.d(TAG, wavObj.getPath(id + ".mp3"));
 
@@ -457,7 +477,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     };
 
 
-    
+
 
     @SuppressLint("ClickableViewAccessibility")
     private void initializeView() {
@@ -497,7 +517,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                     startActivity(intent);
 
                 }
-                    );
+        );
 
 
         // ON CLICK EMITTER
@@ -513,12 +533,12 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             JSONObject mobile = new JSONObject();
             try {
 
-                jsonObject.put("username", name);
+                jsonObject.put("username", username);
                 jsonObject.put("message", messageEdit.getText().toString());
                 jsonObject.put("time",datetime);
                 jsonObject.put("isSent", true);
 
-                mobile.put("name", name);
+                mobile.put("name", username);
                 mobile.put("message",messageEdit.getText().toString());
                 mobile.put("time",datetime);
                 mobile.put("isSent", true);
@@ -655,7 +675,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
         String id = uniqueId.toString();
 
-        URL url = new URL("http://172.20.10.2:3333/echo/uploads");
+//        "http://172.20.10.2:3333/echo/uploads"
+
+        URL url = new URL(protocol + "://" + ip + ":" + port + "/echo/uploads");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
@@ -681,7 +703,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             String datetime = simpleDateFormat.format(currTime);
 
             JSONObject jsonObject = new JSONObject();
-            jsonObject.put("name", name);
+            jsonObject.put("name", username);
             jsonObject.put("id",id);
             jsonObject.put("audioPath", wavObj.getPath(idWav + ".wav"));
             jsonObject.put("time", datetime);
@@ -718,7 +740,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         JSONObject jsonObject = new JSONObject();
 
         try {
-            jsonObject.put("name", name);
+            jsonObject.put("name", username);
             jsonObject.put("image", base64String);
             jsonObject.put("time", datetime);
 
@@ -755,31 +777,26 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
 
-//        startTV.setOnTouchListener(new View.OnTouchListener() {
-//            @Override
-//            public boolean onTouch(View v, MotionEvent event) {
-//
-//                switch (event.getAction() & MotionEvent.ACTION_MASK) {
-//                    case MotionEvent.ACTION_DOWN:
-//                        v.setPressed(true);
-//                        Toast.makeText(getApplicationContext(), "Button Pressed", Toast.LENGTH_SHORT).show();
-//                        startRecording();
-//
-//                    case MotionEvent.ACTION_UP:
-//                    case MotionEvent.ACTION_OUTSIDE:
-//                    case MotionEvent.ACTION_CANCEL:
-//                        v.setPressed(false);
-//                        Toast.makeText(getApplicationContext(), "Button Released", Toast.LENGTH_SHORT).show();
-//                        pauseRecording();
-//                        break;
-//                    case MotionEvent.ACTION_POINTER_DOWN:
-//                    case MotionEvent.ACTION_MOVE:
-//                    case MotionEvent.ACTION_POINTER_UP:
-//                        break;
-//                }
-//                return true;
-//            }
-//        });
 
 
+//        Intent intent2 = new Intent(this, ChatActivity.class);
+//        intent2.putExtra("username", username);
+//        startActivity(intent2);
+
+//
+//        EditText editText = findViewById(R.id.editText);
+//        editText.setText(username);
+
+//        findViewById(R.id.enterBtn)
+//                .setOnClickListener(v -> {
+//
+//                    Intent intent2 = new Intent(this, ChatActivity.class);
+//                    intent2.putExtra("name", editText.getText().toString());
+//                    startActivity(intent2);
+//
+//                });
+
+
+
+//    }
 }
