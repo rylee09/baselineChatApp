@@ -31,14 +31,27 @@ public class FriendListAdapter extends ArrayAdapter<Friend> {
 
         ImageView profilePicture = convertView.findViewById(R.id.profilePicture);
 //        profilePicture.setImageResource(friend.getProfilePicture());
+
+        String other = friend.getFriend();
         String currentRoomId = friend.getRoomId();
+        String you = friend.getYou();
+//        SocketConnection socketConnection = friend.getSocket();
+
+
+
         TextView name = convertView.findViewById(R.id.name);
-        name.setText(friend.getName());
+        name.setText(friend.getFriend());
 
         convertView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(getContext(), ChatActivity.class);
+
+                intent.putExtra("other", other);
+                intent.putExtra("roomId", currentRoomId);
+                intent.putExtra("you", you);
+
+//                intent.putExtra("socketConnection", socketConnection);
 //                intent.putExtra("friendName", friend.getName());
                 getContext().startActivity(intent);
             }

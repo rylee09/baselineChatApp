@@ -117,34 +117,13 @@ public class MainActivity extends AppCompatActivity {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
         }
-        {
-            Log.d(TAG, "Before socket connection");
-//            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
-//            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-//            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
-//            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
-            mSocket = IO.socket(URI.create(protocol + "://" + ip + ":" + port + "/chat"));
-//            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
 
-            mSocket.connect();
+
+            SocketManager.getInstance().connect(protocol,ip,port);
+            mSocket = SocketManager.getInstance().getSocket();
 
 
 
-            if (mSocket.connected()){
-                Log.d(TAG, "connected");
-            } else {
-                Log.d(TAG, "Not connected");
-            }
-            mSocket.emit("join_room","123");
-            if (mSocket.connected()) {
-                Log.d(TAG, "SOCKET IS CONNECTEd");
-                Toast.makeText(MainActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
-            }
-//            mSocket.on("receive_message",onNewMessage);
-//            mSocket.on("receive_image", onNewImage);
-//            mSocket.on("receive_web_voice", onNewVoice);
-
-        }
 
         List<JSONObject> jsonList = new ArrayList<>();
 
@@ -162,11 +141,12 @@ public class MainActivity extends AppCompatActivity {
 
         for (int i=0; i < jsonList.size(); i++) {
             try {
-                System.out.println(jsonList.get(i).get("room_id"));
-                System.out.println(jsonList.get(i).get("username"));
+//                System.out.println(jsonList.get(i).get("room_id"));
+//                System.out.println(jsonList.get(i).get("username"));
                 String roomId = (String) jsonList.get(i).get("room_id");
-                String name = (String) jsonList.get(i).get("username");
-                friends.add(new Friend(name, roomId, username, port, protocol , ip));
+                String friendName = (String) jsonList.get(i).get("username");
+                mSocket.emit("join_room",roomId);
+                friends.add(new Friend(friendName, roomId, username));
 
 
             } catch (JSONException e) {
@@ -186,10 +166,24 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+
+//            mSocket.emit("join_room","123");
+//            if (mSocket.connected()) {
+//                Log.d(TAG, "SOCKET IS CONNECTEd");
+//                Toast.makeText(MainActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
+//            }
+//            mSocket.on("receive_message",onNewMessage);
+//            mSocket.on("receive_image", onNewImage);
+//            mSocket.on("receive_web_voice", onNewVoice);
+
+
+
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
 
-
-
-
+        SocketManager.getInstance().disconnect();
+    }
 }

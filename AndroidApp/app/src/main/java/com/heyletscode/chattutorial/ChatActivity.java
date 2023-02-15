@@ -92,6 +92,7 @@ import android.os.Environment;
 
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.UUID;
 //
 //import static android.Manifest.permission.RECORD_AUDIO;
@@ -169,48 +170,17 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     // constant for storing audio permission
     public static final int REQUEST_AUDIO_PERMISSION_CODE = 1;
 
+    private String other;
+    private String you;
 
-    //initiate client socket connection
-//    @Override
-//    protected void onCreate(Bundle savedInstanceState) {
-//        super.onCreate(savedInstanceState);
-//        setContentView(R.layout.activity_chat);
-//
-//        name = getIntent().getStringExtra("name");
-//        initiateSocketConnection();
-//
-//    }
-
-
-    private String username;
-
-    private String ip;
-    private String port;
-
-    private String friendList;
-
-    private String protocol;
+    private String roomId;
     private Socket mSocket;
-
-
-//    {
-//    ruiiying
-//        socket = IO.socket(URI.create("http://172.20.10.10:3333"));
-//        mSocket = IO.socket(URI.create("http://172.20.10.10:3333/chat"));
-//    }
-
-    //    {
-//    Glenn
-//        socket = IO.socket(URI.create("http://192.168.6.138:3333"));
-//        mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-//    }
-
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        setContentView(R.layout.activity_main);
+
         setContentView(R.layout.activity_chat);
 
 
@@ -219,10 +189,36 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
 
         Intent intent = getIntent();
-//        username = intent.getStringExtra("username");
-//        ip = intent.getStringExtra("ip");
-//        port = intent.getStringExtra("port");
-//        protocol = intent.getStringExtra("protocol");
+        other = intent.getStringExtra("other");
+        you = intent.getStringExtra("you");
+        roomId = intent.getStringExtra("roomId");
+
+        // get existing socket connection
+        mSocket = SocketManager.getInstance().getSocket();
+        mSocket.on("receive_message",onNewMessage);
+
+
+
+
+
+//            if (mSocket.connected()){
+//                Log.d(TAG, "connected");
+//            } else {
+//                Log.d(TAG, "Not connected");
+//            }
+//            mSocket.emit("join_room","123");
+//            if (mSocket.connected()) {
+//                Log.d(TAG, "SOCKET IS CONNECTEd");
+//                Toast.makeText(ChatActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
+//            }
+
+//            mSocket.on("receive_image", onNewImage);
+//            mSocket.on("receive_web_voice", onNewVoice);
+
+
+
+
+        Log.d(TAG, "current room id is : " + roomId);
 
 
 
@@ -240,34 +236,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         {
             StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
             StrictMode.setThreadPolicy(policy);
-        }
-        {
-            Log.d(TAG, "Before socket connection");
-//            socket = IO.socket(URI.create("http://192.168.1.239:3333"));
-//            mSocket = IO.socket(URI.create("http://192.168.1.239:3333/chat"));
-//            mSocket = IO.socket(URI.create("http://192.168.6.138:3333/chat"));
-//            mSocket = IO.socket(URI.create("http://192.168.6.127:3333/chat"));
-            mSocket = IO.socket(URI.create(protocol + "://" + ip + ":" + port + "/chat"));
-//            mSocket = IO.socket(URI.create("http://172.20.10.2:3333/chat"));
-
-            mSocket.connect();
-
-
-
-            if (mSocket.connected()){
-                Log.d(TAG, "connected");
-            } else {
-                Log.d(TAG, "Not connected");
-            }
-            mSocket.emit("join_room","123");
-            if (mSocket.connected()) {
-                Log.d(TAG, "SOCKET IS CONNECTEd");
-                Toast.makeText(ChatActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
-            }
-            mSocket.on("receive_message",onNewMessage);
-            mSocket.on("receive_image", onNewImage);
-            mSocket.on("receive_web_voice", onNewVoice);
-
         }
 
         initializeView();
@@ -321,6 +289,58 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
+
+
+    private Emitter.Listener onNewMessage = new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    String s = args[0].toString();
+                    String msgtoRoom = args[1].toString();
+                    Log.d(TAG, "onReceiveMsg: " + args[1].toString());
+                    Log.d(TAG, "msgtoRoom: " + msgtoRoom);
+                    Log.d(TAG, "roomID: " + roomId);
+
+                    if(Objects.equals(msgtoRoom, roomId)) {
+                        Log.d(TAG, "onReceiveMsg MSG sent to: " + msgtoRoom);
+                        try {
+                            JSONObject json = new JSONObject(s);
+                            String username = json.getString("username");
+                            String message = json.getString("message");
+                            String time = json.getString("time");
+                            Log.v(TAG,username);
+                            Log.v(TAG,time);
+                            Log.v(TAG,message);
+
+                            JSONObject jsonObject = new JSONObject();
+                            try {
+                                jsonObject.put("name", username);
+                                jsonObject.put("message", message);
+                                jsonObject.put("time", time);
+                                jsonObject.put("isSent", false);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+
+                            messageAdapter.addItem(jsonObject);
+
+                            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        Log.d(TAG, "onReceiveMsg MSG not sent to: " + msgtoRoom);
+                    }
+
+
+                }
+            });
+        }
+    };
+
     private Emitter.Listener onNewImage = new Emitter.Listener() {
         @Override
         public void call(Object... args) {
@@ -358,46 +378,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         }
     };
 
-
-    private Emitter.Listener onNewMessage = new Emitter.Listener() {
-        @Override
-        public void call(Object... args) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    String s = args[0].toString();
-
-                    try {
-                        JSONObject json = new JSONObject(s);
-                        String username = json.getString("username");
-                        String message = json.getString("message");
-                        String time = json.getString("time");
-                        Log.v(TAG,username);
-                        Log.v(TAG,time);
-                        Log.v(TAG,message);
-
-                        JSONObject jsonObject = new JSONObject();
-                        try {
-                            jsonObject.put("name", username);
-                            jsonObject.put("message", message);
-                            jsonObject.put("time", time);
-                            jsonObject.put("isSent", false);
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-
-                        messageAdapter.addItem(jsonObject);
-
-                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-
-                }
-            });
-        }
-    };
 
 
     private Emitter.Listener onNewVoice = new Emitter.Listener() {
@@ -533,19 +513,19 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             JSONObject mobile = new JSONObject();
             try {
 
-                jsonObject.put("username", username);
+                jsonObject.put("username",you );
                 jsonObject.put("message", messageEdit.getText().toString());
                 jsonObject.put("time",datetime);
                 jsonObject.put("isSent", true);
 
-                mobile.put("name", username);
+                mobile.put("name", you);
                 mobile.put("message",messageEdit.getText().toString());
                 mobile.put("time",datetime);
                 mobile.put("isSent", true);
 
                 messageAdapter.addItem(mobile);
                 messageEdit.setText("");
-                mSocket.emit("send_message",jsonObject.toString());
+                mSocket.emit("send_message",jsonObject.toString(), roomId);
 
 
                 recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
@@ -591,41 +571,41 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
         });
-
-        pickCloseMicBtn.setOnClickListener(v -> {
-
-
-            Toast.makeText(getApplicationContext(), "Recording Finished", Toast.LENGTH_SHORT).show();
-
-            try{
-
-                long currentTime = System.currentTimeMillis();
-                SecureRandom secureRandom = new SecureRandom();
-                byte[] randomNumber = new byte[8];
-                secureRandom.nextBytes(randomNumber);
-                ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-                bb.putLong(currentTime);
-                bb.put(randomNumber);
-                UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
-                String id = uniqueId.toString();
-
-                wavObj.stopRecording(id);
 //
-                pickMicBtn.setVisibility(View.VISIBLE);
-                pickCloseMicBtn.setVisibility(View.INVISIBLE);
-
-
-                sendAudio(wavObj,id);
-
-
-
-
-                Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-        });
+//        pickCloseMicBtn.setOnClickListener(v -> {
+//
+//
+//            Toast.makeText(getApplicationContext(), "Recording Finished", Toast.LENGTH_SHORT).show();
+//
+//            try{
+//
+//                long currentTime = System.currentTimeMillis();
+//                SecureRandom secureRandom = new SecureRandom();
+//                byte[] randomNumber = new byte[8];
+//                secureRandom.nextBytes(randomNumber);
+//                ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+//                bb.putLong(currentTime);
+//                bb.put(randomNumber);
+//                UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+//                String id = uniqueId.toString();
+//
+//                wavObj.stopRecording(id);
+////
+//                pickMicBtn.setVisibility(View.VISIBLE);
+//                pickCloseMicBtn.setVisibility(View.INVISIBLE);
+//
+//
+//                sendAudio(wavObj,id);
+//
+//
+//
+//
+//                Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//
+//        });
 
     }
 
@@ -661,67 +641,67 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
-    private void sendAudio(wavClass wavObj, String idWav) throws IOException {
-
-        File file = new File(wavObj.getPath(idWav + ".wav"));
-
-        long currentTime = System.currentTimeMillis();
-        SecureRandom secureRandom = new SecureRandom();
-        byte[] randomNumber = new byte[8];
-        secureRandom.nextBytes(randomNumber);
-        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-        bb.putLong(currentTime);
-        bb.put(randomNumber);
-        UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
-        String id = uniqueId.toString();
-
-//        "http://172.20.10.2:3333/echo/uploads"
-
-        URL url = new URL(protocol + "://" + ip + ":" + port + "/echo/uploads");
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("POST");
-        connection.setDoOutput(true);
-        connection.setRequestProperty("Content-Type", "audio/wav");
-        connection.setRequestProperty("id", id);
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            byte[] audioData = Files.readAllBytes(file.toPath());
-
-            OutputStream os = connection.getOutputStream();
-            os.write(audioData);
-            os.flush();
-            os.close();
-        }
-
-        int responseCode = connection.getResponseCode();
-        System.out.println("Response Code: " + responseCode);
-
-        try {
-            currTime = Calendar.getInstance().getTime();
-            String format = "KK:mm";
-            DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-            String datetime = simpleDateFormat.format(currTime);
-
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("name", username);
-            jsonObject.put("id",id);
-            jsonObject.put("audioPath", wavObj.getPath(idWav + ".wav"));
-            jsonObject.put("time", datetime);
-//            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
-            jsonObject.put("isSent", true);
-            mSocket.emit("send_audio", jsonObject.toString());
-
-            messageAdapter.addItem(jsonObject);
-
-            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-
-
-
-    }
+//    private void sendAudio(wavClass wavObj, String idWav) throws IOException {
+//
+//        File file = new File(wavObj.getPath(idWav + ".wav"));
+//
+//        long currentTime = System.currentTimeMillis();
+//        SecureRandom secureRandom = new SecureRandom();
+//        byte[] randomNumber = new byte[8];
+//        secureRandom.nextBytes(randomNumber);
+//        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+//        bb.putLong(currentTime);
+//        bb.put(randomNumber);
+//        UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+//        String id = uniqueId.toString();
+//
+////        "http://172.20.10.2:3333/echo/uploads"
+//
+//        URL url = new URL(protocol + "://" + ip + ":" + port + "/echo/uploads");
+//        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+//        connection.setRequestMethod("POST");
+//        connection.setDoOutput(true);
+//        connection.setRequestProperty("Content-Type", "audio/wav");
+//        connection.setRequestProperty("id", id);
+//
+//        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+//            byte[] audioData = Files.readAllBytes(file.toPath());
+//
+//            OutputStream os = connection.getOutputStream();
+//            os.write(audioData);
+//            os.flush();
+//            os.close();
+//        }
+//
+//        int responseCode = connection.getResponseCode();
+//        System.out.println("Response Code: " + responseCode);
+//
+//        try {
+//            currTime = Calendar.getInstance().getTime();
+//            String format = "KK:mm";
+//            DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
+//            String datetime = simpleDateFormat.format(currTime);
+//
+//            JSONObject jsonObject = new JSONObject();
+//            jsonObject.put("name", username);
+//            jsonObject.put("id",id);
+//            jsonObject.put("audioPath", wavObj.getPath(idWav + ".wav"));
+//            jsonObject.put("time", datetime);
+////            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
+//            jsonObject.put("isSent", true);
+//            mSocket.emit("send_audio", jsonObject.toString());
+//
+//            messageAdapter.addItem(jsonObject);
+//
+//            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+//
+//        } catch (JSONException e) {
+//            e.printStackTrace();
+//        }
+//
+//
+//
+//    }
 
     // NOT
     private void sendImage(Bitmap image) {
@@ -740,7 +720,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         JSONObject jsonObject = new JSONObject();
 
         try {
-            jsonObject.put("name", username);
+            jsonObject.put("name", you);
             jsonObject.put("image", base64String);
             jsonObject.put("time", datetime);
 
