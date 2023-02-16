@@ -1,70 +1,29 @@
-package com.heyletscode.chattutorial;
+package com.heyletscode.chattutorial.activity;
 
-import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
-
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.media.AudioFormat;
-import android.media.AudioRecord;
-import android.media.MediaPlayer;
-import android.media.MediaRecorder;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
 import android.os.StrictMode;
-import android.text.Editable;
-import android.text.TextWatcher;
-import android.util.Base64;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.ListView;
-import android.widget.SeekBar;
-import android.widget.Toast;
+
+import com.heyletscode.chattutorial.classes.Friend;
+import com.heyletscode.chattutorial.R;
+import com.heyletscode.chattutorial.adapter.FriendListAdapter;
+import com.heyletscode.chattutorial.socket.SocketManager;
+import com.heyletscode.chattutorial.util.HttpClient;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.security.SecureRandom;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
-import java.util.UUID;
 
-import io.socket.client.IO;
 import io.socket.client.Socket;
-import io.socket.emitter.Emitter;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -84,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private String protocol;
     private Socket mSocket;
 
-
+    private HttpClient httpClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,7 +64,9 @@ public class MainActivity extends AppCompatActivity {
         friendList = intent.getStringExtra("friendList");
 //        Log.d(TAG, friendList);
 
+        String baseUrl = protocol + "://" + ip + ":" + port;
 
+        httpClient = HttpClient.getInstance(baseUrl);
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED)
@@ -121,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
 
             SocketManager.getInstance().connect(protocol,ip,port);
             mSocket = SocketManager.getInstance().getSocket();
-
+        System.out.println("hi");
 
 
 

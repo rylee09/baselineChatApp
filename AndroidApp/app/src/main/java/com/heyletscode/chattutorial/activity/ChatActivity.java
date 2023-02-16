@@ -1,4 +1,4 @@
-package com.heyletscode.chattutorial;
+package com.heyletscode.chattutorial.activity;
 
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 
@@ -24,7 +24,6 @@ import android.text.TextWatcher;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.SeekBar;
@@ -37,31 +36,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
-import java.nio.Buffer;
-import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.security.SecureRandom;
-import java.sql.SQLOutput;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Date;
 
@@ -72,28 +58,32 @@ import java.util.Date;
 //import okhttp3.WebSocket;
 //import okhttp3.WebSocketListener;
 
-import de.tavendo.autobahn.ByteBufferOutputStream;
-import io.socket.client.IO;
 //import io.socket.client.Socket;
 import io.socket.client.Socket;
-import io.socket.client.Url;
 import io.socket.emitter.Emitter;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import android.content.pm.PackageManager;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 
 
-import android.os.Environment;
-
+import com.heyletscode.chattutorial.R;
+import com.heyletscode.chattutorial.VideoActivity;
+import com.heyletscode.chattutorial.adapter.MessageAdapter;
+import com.heyletscode.chattutorial.socket.SocketManager;
+import com.heyletscode.chattutorial.classes.wavClass;
+import com.heyletscode.chattutorial.util.HttpClient;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.UUID;
 //
 //import static android.Manifest.permission.RECORD_AUDIO;
 //import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
@@ -176,6 +166,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private String roomId;
     private Socket mSocket;
 
+    HttpClient httpClient = HttpClient.getInstance("https://example.com/api");
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -199,18 +190,79 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
 
+        // Perform a GET request
+        String endpoint = "/getAllChats";
+        httpClient.doGet(endpoint, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                // Handle failure
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+
+                try{
+                    JSONObject result = new JSONObject(response.body().string());
+                    JSONArray respMsgArray = result.getJSONArray("resp_msg");
+                    Log.d(TAG, String.valueOf(respMsgArray));
+
+                    for (int i=0; i < respMsgArray.length(); i++) {
+                        String dbRoomId = respMsgArray.getJSONObject(i).getString("room_id");
+                        Log.d(TAG, "dbroomid: " + dbRoomId);
+
+                        String[] dbUsername = respMsgArray.getJSONObject(i).getString("senders").split(",");
+                        System.out.println("chatactivity:" + dbUsername.length);
+
+                        String[] dbMessage = respMsgArray.getJSONObject(i).getString("messages").split(",");
+                        String[] dbTimeStamp = respMsgArray.getJSONObject(i).getString("timestamps").split(",");
 
 
-//            if (mSocket.connected()){
-//                Log.d(TAG, "connected");
-//            } else {
-//                Log.d(TAG, "Not connected");
-//            }
-//            mSocket.emit("join_room","123");
-//            if (mSocket.connected()) {
-//                Log.d(TAG, "SOCKET IS CONNECTEd");
-//                Toast.makeText(ChatActivity.this, "Socket Connected",Toast.LENGTH_SHORT).show();
-//            }
+                        if(Objects.equals(roomId, dbRoomId)) {
+                            Log.d(TAG, "put messages into this room");
+
+                            for (int j=0; j < dbUsername.length; j++) {
+                                Log.d(TAG, "inner: " + dbUsername[j]);
+                                JSONObject jsonObject = new JSONObject();
+                            try {
+                                jsonObject.put("name", dbUsername[j]);
+                                jsonObject.put("message", dbMessage[j]);
+                                jsonObject.put("time", dbTimeStamp[j]);
+
+                                if(Objects.equals(dbUsername[j], you)) {
+                                    jsonObject.put("isSent", true);
+                                } else {
+                                    jsonObject.put("isSent", false);
+                                }
+
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+
+
+                                runOnUiThread(new Runnable() {
+                                    public void run() {
+                                        // Your UI update code here
+                                        messageAdapter.addItem(jsonObject);
+
+                                        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+                                    }
+                                });
+
+
+                            }
+//
+                            break;
+                        }
+                    }
+                } catch (JSONException e) {
+                    throw new RuntimeException(e);
+                }
+//                Log.d(TAG, response.body().string());
+            }
+        });
+
+
+
 
 //            mSocket.on("receive_image", onNewImage);
 //            mSocket.on("receive_web_voice", onNewVoice);
@@ -524,14 +576,33 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 mobile.put("isSent", true);
 
                 messageAdapter.addItem(mobile);
-                messageEdit.setText("");
+
                 mSocket.emit("send_message",jsonObject.toString(), roomId);
 
 
                 recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
 
-                resetMessageEdit();
+                JSONObject json = new JSONObject();
+                json.put("roomId",roomId);
+                json.put("msg",messageEdit.getText().toString());
+                json.put("timestamp",datetime);
+                json.put("sender",you);
 
+
+
+                RequestBody body = RequestBody.create(String.valueOf(json), MediaType.parse("application/json; charset=utf-8"));
+                httpClient.doPost("/checkExistence", body, new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        Log.d(TAG, "failed to save message");                    }
+
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        Log.d(TAG, "successfully saved message");
+                    }
+                });
+                resetMessageEdit();
+                messageEdit.setText("");
 
             } catch (JSONException e) {
                 e.printStackTrace();

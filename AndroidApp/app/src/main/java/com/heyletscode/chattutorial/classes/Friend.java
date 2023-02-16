@@ -1,4 +1,4 @@
-package com.heyletscode.chattutorial;
+package com.heyletscode.chattutorial.classes;
 
 public class Friend {
     private final String friend;

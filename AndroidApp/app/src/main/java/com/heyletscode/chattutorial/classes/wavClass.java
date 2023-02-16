@@ -1,4 +1,4 @@
-package com.heyletscode.chattutorial;
+package com.heyletscode.chattutorial.classes;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;

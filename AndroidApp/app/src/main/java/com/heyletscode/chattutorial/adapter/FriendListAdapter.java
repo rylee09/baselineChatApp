@@ -1,4 +1,4 @@
-package com.heyletscode.chattutorial;
+package com.heyletscode.chattutorial.adapter;
 
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +11,10 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import com.heyletscode.chattutorial.activity.ChatActivity;
+import com.heyletscode.chattutorial.classes.Friend;
+import com.heyletscode.chattutorial.R;
 
 import java.util.ArrayList;
 

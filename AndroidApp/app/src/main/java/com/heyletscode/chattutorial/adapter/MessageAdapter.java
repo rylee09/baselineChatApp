@@ -1,8 +1,7 @@
-package com.heyletscode.chattutorial;
+package com.heyletscode.chattutorial.adapter;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
 import android.os.Environment;
 import android.os.Handler;
@@ -17,14 +16,15 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.heyletscode.chattutorial.R;
+import com.heyletscode.chattutorial.classes.wavClass;
+
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Text;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.LogRecord;
 
 public class MessageAdapter extends RecyclerView.Adapter {
 
