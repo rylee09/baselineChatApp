@@ -3,12 +3,21 @@ package com.heyletscode.chattutorial.activity;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 
 
+import static org.webrtc.SessionDescription.Type.ANSWER;
+import static org.webrtc.SessionDescription.Type.OFFER;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.provider.MediaStore;
 import android.widget.Button;
 
 
@@ -26,6 +35,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.RemoteViews;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
@@ -33,21 +43,40 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.webrtc.DataChannel;
+import org.webrtc.IceCandidate;
+import org.webrtc.MediaConstraints;
+import org.webrtc.MediaStream;
+import org.webrtc.PeerConnection;
+import org.webrtc.PeerConnectionFactory;
+import org.webrtc.RtpReceiver;
+import org.webrtc.SdpObserver;
+import org.webrtc.SessionDescription;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Date;
 
@@ -76,7 +105,6 @@ import android.media.MediaRecorder;
 
 
 import com.heyletscode.chattutorial.R;
-import com.heyletscode.chattutorial.VideoActivity;
 import com.heyletscode.chattutorial.adapter.MessageAdapter;
 import com.heyletscode.chattutorial.socket.SocketManager;
 import com.heyletscode.chattutorial.classes.wavClass;
@@ -84,6 +112,9 @@ import com.heyletscode.chattutorial.util.HttpClient;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.UUID;
 //
 //import static android.Manifest.permission.RECORD_AUDIO;
 //import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
@@ -108,6 +139,13 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private boolean isRecording = false;
     int[] bufferData;
     int bytesRecorded;
+
+    private int size = -1;
+
+    private int offset = 0;
+
+    int CHUNK_SIZE = 64 * 1024;
+
 
 
 
@@ -139,6 +177,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     private RecyclerView recyclerView;
     private int IMAGE_REQUEST_ID = 1;
+
+    private static final int REQUEST_IMAGE_CAPTURE = 2;
     private MessageAdapter messageAdapter;
 
 
@@ -166,7 +206,29 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private String roomId;
     private Socket mSocket;
 
+    private int notificationId = 0;
+
     HttpClient httpClient = HttpClient.getInstance("https://example.com/api");
+
+    private PeerConnectionFactory factory;
+
+    private PeerConnection peerConnection;
+
+    private DataChannel dataChannel;
+
+    private SessionDescription remoteSDP;
+
+    private SessionDescription localSDP;
+
+    private String type;
+
+    private String filename;
+
+    private String sender;
+
+    private byte[] imageBytes;
+
+    private  ByteArrayOutputStream outputStream = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -179,6 +241,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 != PackageManager.PERMISSION_GRANTED)
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
 
+        cameraPermission();
+
         Intent intent = getIntent();
         other = intent.getStringExtra("other");
         you = intent.getStringExtra("you");
@@ -187,6 +251,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         // get existing socket connection
         mSocket = SocketManager.getInstance().getSocket();
         mSocket.on("receive_message",onNewMessage);
+        mSocket.on("image_buffer", onNewImageBuffer);
+
+
+
+
 
 
 
@@ -210,22 +279,53 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                         String dbRoomId = respMsgArray.getJSONObject(i).getString("room_id");
                         Log.d(TAG, "dbroomid: " + dbRoomId);
 
-                        String[] dbUsername = respMsgArray.getJSONObject(i).getString("senders").split(",");
+                        String[] dbUsername = respMsgArray.getJSONObject(i).getString("senders").split("!,@");
                         System.out.println("chatactivity:" + dbUsername.length);
 
-                        String[] dbMessage = respMsgArray.getJSONObject(i).getString("messages").split(",");
-                        String[] dbTimeStamp = respMsgArray.getJSONObject(i).getString("timestamps").split(",");
+                        String[] dbMessage = respMsgArray.getJSONObject(i).getString("messages").split("!,@");
+                        String[] dbTimeStamp = respMsgArray.getJSONObject(i).getString("timestamps").split("!,@");
 
 
                         if(Objects.equals(roomId, dbRoomId)) {
                             Log.d(TAG, "put messages into this room");
 
                             for (int j=0; j < dbUsername.length; j++) {
+
+
                                 Log.d(TAG, "inner: " + dbUsername[j]);
                                 JSONObject jsonObject = new JSONObject();
                             try {
                                 jsonObject.put("name", dbUsername[j]);
-                                jsonObject.put("message", dbMessage[j]);
+
+                                if (dbMessage[j].contains("image:")){
+                                    String fileName = dbMessage[j].replace("image:","");
+                                    File picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+                                    File tempFile = new File(picturesDir,"imgDB");
+                                    File imageFile = new File(tempFile,fileName);
+                                    String imagePath = imageFile.getAbsolutePath();
+
+                                    byte[] fileData = null;
+                                    try {
+                                        InputStream inputStream = new FileInputStream(new File(imagePath));
+                                        fileData = new byte[inputStream.available()];
+                                        inputStream.read(fileData);
+                                        inputStream.close();
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                    String base64String =null;
+                                    if (fileData != null) {
+                                        base64String = Base64.encodeToString(fileData, Base64.DEFAULT);
+                                        // use the base64String as needed
+                                    } else {
+                                        // handle the case where fileData is null
+                                    }
+
+                                    jsonObject.put("image", base64String);
+                                } else {
+                                    jsonObject.put("message", dbMessage[j]);
+                                }
+
                                 jsonObject.put("time", dbTimeStamp[j]);
 
                                 if(Objects.equals(dbUsername[j], you)) {
@@ -260,6 +360,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //                Log.d(TAG, response.body().string());
             }
         });
+
 
 
 
@@ -335,12 +436,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         sendBtn.setVisibility(View.INVISIBLE);
         pickImgBtn.setVisibility(View.VISIBLE);
         pickMicBtn.setVisibility(View.VISIBLE);
-        pickCameraBtn.setVisibility(View.INVISIBLE);
+        pickCameraBtn.setVisibility(View.VISIBLE);
 
         messageEdit.addTextChangedListener(this);
 
     }
-
 
 
     private Emitter.Listener onNewMessage = new Emitter.Listener() {
@@ -351,9 +451,12 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 public void run() {
                     String s = args[0].toString();
                     String msgtoRoom = args[1].toString();
+
                     Log.d(TAG, "onReceiveMsg: " + args[1].toString());
                     Log.d(TAG, "msgtoRoom: " + msgtoRoom);
                     Log.d(TAG, "roomID: " + roomId);
+
+
 
                     if(Objects.equals(msgtoRoom, roomId)) {
                         Log.d(TAG, "onReceiveMsg MSG sent to: " + msgtoRoom);
@@ -372,6 +475,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                                 jsonObject.put("message", message);
                                 jsonObject.put("time", time);
                                 jsonObject.put("isSent", false);
+
+
+
                             } catch (JSONException e) {
                                 e.printStackTrace();
                             }
@@ -385,6 +491,25 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                         }
                     } else {
                         Log.d(TAG, "onReceiveMsg MSG not sent to: " + msgtoRoom);
+                        Log.d(TAG, "msg notification pop up");
+                        try {
+                            JSONObject json = new JSONObject(s);
+                            String username = json.getString("username");
+                            String message = json.getString("message");
+                            String time = json.getString("time");
+
+
+
+                            createNotification(message,username,roomId);
+
+
+
+
+
+
+                        }catch (JSONException e) {
+                            e.printStackTrace();
+                        }
                     }
 
 
@@ -392,6 +517,176 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             });
         }
     };
+
+
+
+    private Emitter.Listener onNewImageBuffer= new Emitter.Listener() {
+        @Override
+        public void call(Object... args) {
+
+
+
+            String s = args[0].toString();
+            String chatRoomID = args[1].toString();
+
+            if (Objects.equals(outputStream, null)) {
+                // Create a new ByteArrayOutputStream for each image
+                outputStream = new ByteArrayOutputStream();
+            }
+            ;
+
+//            String bytes = s.toString();
+//            Log.d(TAG, "bytes: " + bytes);
+//            String message = new String(myBytes, Charset.forName("UTF-8"));
+//            Log.d(TAG, "message123: " + message);
+
+            if (Objects.equals(size,-1)) {
+                try {
+                    JSONObject json = new JSONObject(s);
+
+                    Log.d(TAG, "init size and type configuration");
+                    size = json.getInt("size");
+                    type = json.getString("type");
+                    filename = json.getString("name");
+                    sender = json.getString("sender");
+                    Log.d(TAG, "size: " + size);
+                    Log.d(TAG, "type: " + type);
+                    Log.d(TAG, "size: " + filename);
+                    Log.d(TAG, "type: " + sender);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            } else {
+
+                byte[] bytes = (byte[]) args[0];
+                ByteBuffer buffer = ByteBuffer.wrap(bytes);
+//                Log.d(TAG, "call: bytes: " + Arrays.toString(bytes));
+//                Log.d(TAG, "call: receiving buffer: " + buffer);
+
+                Log.d(TAG, "writing new buffer");
+                outputStream.write(buffer.array(),buffer.position(),buffer.remaining());
+//                Log.d(TAG, "size: " + outputStream.size() );
+                offset += CHUNK_SIZE;
+//                Log.d(TAG, "offset: " + offset );
+
+                if (offset >= size) {
+
+                    Log.d(TAG, "end of writing of new received image buffer");
+                    imageBytes = outputStream.toByteArray();
+//                    Log.d(TAG, "final length: " + imageBytes.length);
+//                    Log.d(TAG, "bytearraystring" + imageBytes.toString());
+//                    Log.d(TAG, "offset" + offset);
+//                    Log.d(TAG, "size" + size);
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                    saveImageToGallery(getApplicationContext(), bitmap, filename);
+                    String base64Image = Base64.encodeToString(imageBytes, Base64.DEFAULT);
+
+
+                    Date date = new Date();
+                    DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+                    String datetime = simpleDateFormat.format(date);
+
+                    JSONObject jsonObject = new JSONObject();
+
+                    try {
+                    jsonObject.put("name", you);
+                    jsonObject.put("image", base64Image);
+                    jsonObject.put("time", datetime);
+                    jsonObject.put("isSent", false);
+            //                                    mSocket.emit("send_image",jsonObject.toString());
+
+
+                        JSONObject json = new JSONObject();
+                        try {
+                            json.put("roomId",chatRoomID);
+                            json.put("msg","image:" + filename);
+                            json.put("timestamp",datetime);
+                            json.put("sender",sender);
+                        } catch (JSONException e) {
+                            throw new RuntimeException(e);
+                        }
+
+
+
+
+                        RequestBody body = RequestBody.create(String.valueOf(json), MediaType.parse("application/json; charset=utf-8"));
+                        httpClient.doPost("/checkExistence", body, new Callback() {
+                            @Override
+                            public void onFailure(Call call, IOException e) {
+                                Log.d(TAG, "failed to save message");                    }
+
+                            @Override
+                            public void onResponse(Call call, Response response) throws IOException {
+                                Log.d(TAG, "successfully saved message");
+                            }
+                        });
+
+
+
+
+                    } catch (JSONException e) {
+                    e.printStackTrace();
+                    }
+
+
+
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            // Update the UI here
+                            messageAdapter.addItem(jsonObject);
+                            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+                            try {
+                                outputStream.close();
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                            outputStream.reset();
+                            offset = 0;
+                            size = -1;
+
+
+                        }
+                    });
+
+
+                }
+//
+            }
+        }
+
+
+
+    };
+
+
+
+    private void createNotification(String message, String username, String roomId) {
+        // Create a notification channel (for devices running Android 8.0 or higher)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(roomId, "channel_name", NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        // Create a RemoteViews object for the custom layout of the notification
+        RemoteViews contentView = new RemoteViews(getPackageName(), R.layout.notification_layout);
+        contentView.setTextViewText(R.id.notification_title, username);
+        contentView.setTextViewText(R.id.notification_text, message);
+
+
+        // Create a notification builder with the channel ID and set the custom layout
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, roomId)
+                .setSmallIcon(R.drawable.ic_baseline_photo_camera_24)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContent(contentView);
+
+        // Show the notification
+        NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+        notificationId = notificationId ++; // unique integer value for the notification
+
+        notificationManager.notify(notificationId, builder.build());
+    }
 
     private Emitter.Listener onNewImage = new Emitter.Listener() {
         @Override
@@ -542,23 +837,18 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         messageEdit.addTextChangedListener(this);
 
 
-
-        pickVideoBtn.setOnClickListener(v -> {
-                    Log.d(TAG, "VIDEO SHOULD OPEN");
-                    Intent intent = new Intent(this, VideoActivity.class);
-                    startActivity(intent);
-
-                }
-        );
+        pickCameraBtn.setOnClickListener(v -> {
+            dispatchTakePictureIntent();
+        });
 
 
         // ON CLICK EMITTER
         sendBtn.setOnClickListener(v -> {
-            currentTime = Calendar.getInstance().getTime();
-            String format = "KK:mm";
-            DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-            String datetime = simpleDateFormat.format(currentTime);
 
+            // current date and time
+            Date date = new Date();
+            DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            String datetime = simpleDateFormat.format(date);
 
 
             JSONObject jsonObject = new JSONObject();
@@ -680,6 +970,28 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
+    private void dispatchTakePictureIntent() {
+
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+
+
+//            // initiate datachannel for receiver to receive image
+//            DataChannel.Init init = new DataChannel.Init();
+//            init.id = 1;
+//            init.ordered = true;
+//            init.negotiated = false;
+////            DataChannel.Init init = new DataChannel.Init();
+//            dataChannel = peerConnection.createDataChannel("imageChannel", init);
+        }
+    }
+
+
+    private void cameraPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA,WRITE_EXTERNAL_STORAGE},1);
+    }
+
 
 
     private boolean checkWritePermission() {
@@ -687,6 +999,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         int result2 = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.RECORD_AUDIO);
         return result1 == PackageManager.PERMISSION_GRANTED && result2 == PackageManager.PERMISSION_GRANTED ;
     }
+
     private void requestWritePermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO,Manifest.permission.MODIFY_AUDIO_SETTINGS,WRITE_EXTERNAL_STORAGE},1);
     }
@@ -702,7 +1015,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 InputStream is = getContentResolver().openInputStream(data.getData());
                 Bitmap image = BitmapFactory.decodeStream(is);
 
-                sendImage(image);
+                displayImage(image);
 
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
@@ -710,7 +1023,61 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         }
 
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            Log.d(TAG, "onActivityResult: Captured Image");
+
+            Bundle extras = data.getExtras();
+            if (extras != null) {
+                Bitmap bitmap = (Bitmap) extras.get("data");
+                if (bitmap != null) {
+                    displayImage(bitmap);
+                    Log.d(TAG, "before send bitmap");
+                    sendImageToWeb(bitmap, mSocket);
+
+                    // To save file name in database using API call for extraction.
+                }
+            }
+        }
+
     }
+
+    private void sendImageToWeb(Bitmap bitmap, Socket socket) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+        byte[] imageBytes = outputStream.toByteArray();
+
+        UUID uuid = UUID.randomUUID();
+
+        // Get the string representation of the UUID
+        String randomUUIDString = uuid.toString();
+
+        // send type and size information
+        JSONObject fileInfo = new JSONObject();
+        try {
+
+            fileInfo.put("type", "image/jpeg");
+            fileInfo.put("size", imageBytes.length);
+            fileInfo.put("name", "mobile-" + randomUUIDString + ".jpeg");
+            fileInfo.put("sender", you);
+            socket.emit("send_image_buffer", fileInfo.toString(), roomId);
+            saveImageToGallery(this,bitmap,"mobile-" + randomUUIDString + ".jpeg");
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        // send image data in chunks of 16KB
+        int offset = 0;
+        int chunkSize = 64 * 1024;
+        while (offset < imageBytes.length) {
+            int remainingBytes = imageBytes.length - offset;
+            int bytesToSend = Math.min(remainingBytes, chunkSize);
+            byte[] chunk = Arrays.copyOfRange(imageBytes, offset, offset + bytesToSend);
+            socket.emit("send_image_buffer",chunk, roomId) ;
+            offset += bytesToSend;
+        }
+    }
+
 
 //    private void sendAudio(wavClass wavObj, String idWav) throws IOException {
 //
@@ -774,8 +1141,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //
 //    }
 
+
+
+    
     // NOT
-    private void sendImage(Bitmap image) {
+    private void displayImage(Bitmap image) {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         image.compress(Bitmap.CompressFormat.JPEG, 50, outputStream);
@@ -783,10 +1153,11 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         String base64String = Base64.encodeToString(outputStream.toByteArray(),
                 Base64.DEFAULT);
 
-        currentTime = Calendar.getInstance().getTime();
-        String format = "KK:mm";
-        DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-        String datetime = simpleDateFormat.format(currentTime);
+
+        // current date and time
+        Date date = new Date();
+        DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+        String datetime = simpleDateFormat.format(date);
 
         JSONObject jsonObject = new JSONObject();
 
@@ -794,8 +1165,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             jsonObject.put("name", you);
             jsonObject.put("image", base64String);
             jsonObject.put("time", datetime);
-
-            mSocket.emit("send_image",jsonObject.toString());
             jsonObject.put("isSent", true);
 
             messageAdapter.addItem(jsonObject);
@@ -808,7 +1177,37 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     }
 
+    public void saveImageToGallery(Context context, Bitmap bitmap, String fileName) {
+        // Get the directory for the user's public pictures directory.
+        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        // Create a sub-directory with the specified name
+        File imageDir = new File(dir, "imgDB");
+        if (!imageDir.exists()) {
+            imageDir.mkdir();
+        }
 
+        // Create a file for the image in the sub-directory
+        File imageFile = new File(imageDir, fileName);
+        FileOutputStream outputStream = null;
+        try {
+            outputStream = new FileOutputStream(imageFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+            outputStream.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (outputStream != null) {
+                    outputStream.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        // Add the image to the gallery
+        MediaScannerConnection.scanFile(context, new String[] { imageFile.getAbsolutePath() }, null, null);
+    }
 
     private boolean isMicrophonePresent() {
         if(this.getPackageManager().hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
@@ -830,24 +1229,355 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
 
-//        Intent intent2 = new Intent(this, ChatActivity.class);
-//        intent2.putExtra("username", username);
-//        startActivity(intent2);
-
-//
-//        EditText editText = findViewById(R.id.editText);
-//        editText.setText(username);
-
-//        findViewById(R.id.enterBtn)
-//                .setOnClickListener(v -> {
-//
-//                    Intent intent2 = new Intent(this, ChatActivity.class);
-//                    intent2.putExtra("name", editText.getText().toString());
-//                    startActivity(intent2);
-//
-//                });
-
-
-
-//    }
 }
+
+
+
+
+
+
+//    PeerConnectionFactory.InitializationOptions initializationOptions = PeerConnectionFactory.InitializationOptions.builder(getApplicationContext()).createInitializationOptions();
+//        PeerConnectionFactory.initialize(initializationOptions);
+//                PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+//
+//                PeerConnectionFactory peerConnectionFactory = PeerConnectionFactory.builder().setOptions(options).createPeerConnectionFactory();
+//                List<PeerConnection.IceServer> iceServers = new ArrayList<>();
+////        iceServers.add(PeerConnection.IceServer.builder("stun:stun2.1.google.com:19302").createIceServer());
+//        PeerConnection.RTCConfiguration rtcConfig =  new PeerConnection.RTCConfiguration(iceServers);
+//
+//        peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
+//@Override
+//public void onSignalingChange(PeerConnection.SignalingState signalingState) {
+//        Log.d(TAG, "onSignalingChange: " + signalingState);
+//
+//        }
+//
+//@Override
+//public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
+//        Log.d(TAG, "onIceConnectionChange: " + iceConnectionState);
+//        }
+//
+//@Override
+//public void onIceConnectionReceivingChange(boolean b) {
+//
+//        }
+//
+//@Override
+//public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
+//
+//        }
+//
+//@Override
+//public void onIceCandidate(IceCandidate iceCandidate) {
+//        Log.d(TAG, "onIceCandidate: " + iceCandidate);
+//
+//        }
+//
+//@Override
+//public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {
+//
+//        }
+//
+//@Override
+//public void onAddStream(MediaStream mediaStream) {
+//
+//        }
+//
+//@Override
+//public void onRemoveStream(MediaStream mediaStream) {
+//
+//        }
+//
+//@Override
+//public void onDataChannel(DataChannel dataChannel) {
+//        Log.d(TAG, "onDataChannel: " + dataChannel.label());
+//
+//
+//        dataChannel.registerObserver(new DataChannel.Observer() {
+//
+//@Override
+//public void onBufferedAmountChange(long l) {
+//
+//        }
+//
+//@Override
+//public void onStateChange() {
+//        if (dataChannel.state() == DataChannel.State.OPEN) {
+//        // Data channel is open, you can send messages here
+//
+//        Log.d(TAG, "onStateChange: channel open");
+//
+//
+//
+//        } else if (dataChannel.state() == DataChannel.State.CLOSED) {
+//        // Data channel is closed, you cannot send messages until it's reopened
+//        Log.d(TAG, "onStateChange: channel closed");
+//
+//        } else {
+//        // Data channel is in some other state (e.g. connecting or closing)
+//        // You can handle this case however you like
+//        Log.d(TAG, "onStateChange: channel connecting");
+//
+//        }
+//
+//        }
+//
+//@Override
+//public void onMessage(DataChannel.Buffer buffer) {
+//
+//
+//        Log.d(TAG, "onMessage: new message from data Channel");
+//
+//
+//        ByteBuffer data = buffer.data;
+//        byte[] bytes = new byte[data.remaining()];
+//        data.get(bytes);
+//
+//        if (Objects.equals(outputStream,null)) {
+//        // Create a new ByteArrayOutputStream for each image
+//        outputStream = new ByteArrayOutputStream();
+//        }
+//
+//
+//
+//        String message = new String(bytes, Charset.forName("UTF-8"));
+//
+//        if (Objects.equals(size,-1)) {
+//        try {
+//        JSONObject json = new JSONObject(message);
+//
+//        Log.d(TAG, "init size and type configuration");
+//        size = json.getInt("size");
+//        type = json.getString("type");
+//        Log.d(TAG, "size: " + size);
+//        Log.d(TAG, "type: " + type);
+//        } catch (JSONException e) {
+//        e.printStackTrace();
+//        }
+//        } else {
+//        try {
+//        Log.d(TAG, "writing new buffer");
+//        outputStream.write(bytes);
+//        offset += CHUNK_SIZE;
+//
+//        } catch (IOException e) {
+//        throw new RuntimeException(e);
+//        }
+//
+//        if (offset >= size) {
+//
+//        Log.d(TAG, "end of writing of new received image buffer");
+//        imageBytes = outputStream.toByteArray();
+//        Log.d(TAG, "final length: " + imageBytes.length);
+//        Log.d(TAG, "bytearraystring" + imageBytes.toString());
+//        Log.d(TAG, "offset" + offset);
+//        Log.d(TAG, "size" + size);
+//
+//        String base64Image = Base64.encodeToString(imageBytes, Base64.DEFAULT);
+////                                Log.d(TAG, "base64String: " + base64Image);
+//
+//
+//        Date date = new Date();
+//        DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy hh:mm:ss");
+//        String datetime = simpleDateFormat.format(date);
+//
+//        JSONObject jsonObject = new JSONObject();
+//
+//        try {
+//        jsonObject.put("name", you);
+//        jsonObject.put("image", base64Image);
+//        jsonObject.put("time", datetime);
+//        jsonObject.put("isSent", false);
+////                                    mSocket.emit("send_image",jsonObject.toString());
+//
+//        } catch (JSONException e) {
+//        e.printStackTrace();
+//        }
+//
+//        runOnUiThread(new Runnable() {
+//public void run() {
+//        // Update the UI here
+//        messageAdapter.addItem(jsonObject);
+//        recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+//        try {
+//        outputStream.close();
+//        } catch (IOException e) {
+//        throw new RuntimeException(e);
+//        }
+//        outputStream.reset();
+//        offset = 0;
+//        size = -1;
+//        }
+//        });
+//
+//
+//        }
+//
+//
+//        }
+//
+//
+//
+//
+//
+//
+////                        ByteBuffer data = buffer.data;
+////                        byte[] bytes = new byte[data.remaining()];
+////                        data.get(bytes);
+////                        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes,0, bytes.length);
+////                        Log.d(TAG, "onMessage: DATACHANNEL");
+//
+//        }
+//        });
+//
+//        }
+//
+//@Override
+//public void onRenegotiationNeeded() {
+//        Log.d(TAG, "onRenegotiationNeeded: ");
+//
+//        }
+//
+//@Override
+//public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
+//
+//        }
+//        });
+
+
+// listen for new candidates from remote client
+//        mSocket.on("candidate",args -> {
+//                JSONObject message = (JSONObject) args[0];
+//
+//
+//                IceCandidate candidate = null;
+//                try {
+//                candidate = new IceCandidate(message.getString("sdpMid"), message.getInt("sdpMLineIndex"), message.getString("candidate"));
+//                Log.d(TAG, "(SUCCESS) adding candidate to android client: " + String.valueOf(candidate));
+//                } catch (JSONException e) {
+//                throw new RuntimeException(e);
+//                }
+//                peerConnection.addIceCandidate(candidate);
+//                } );
+//
+//
+//
+//                // listen for offer and answer sdp
+//                mSocket.on("sdp", args -> {
+//                JSONObject message = (JSONObject) args[0];
+//                Log.d(TAG, String.valueOf(message));
+//                try {
+//                String sdp = message.getString("sdp");
+//                String type = message.getString("type");
+//
+//
+//                if (type.equals("offer")) {
+//                // set sdp as remote description (OFFER)
+//                remoteSDP = new SessionDescription(OFFER,sdp);
+//                Log.d(TAG, String.valueOf(remoteSDP));
+//
+//                peerConnection.setRemoteDescription(new SdpObserver() {
+//@Override
+//public void onCreateSuccess(SessionDescription sessionDescription) {
+//
+//        }
+//
+//@Override
+//public void onSetSuccess() {
+//        Log.d(TAG, "(SUCCESS)[SET_REMOTE_DESCRIPTION] Answer to Offer from Remote Initiated");
+//        // Get the updated SDP from the local peer connection
+//
+//
+//        peerConnection.createAnswer(new SdpObserver() {
+//@Override
+//public void onCreateSuccess(SessionDescription sessionDescription) {
+//        Log.d(TAG, "(SUCCESS)[CREATEANSWER] Answer Created based on offer");
+//
+//
+//
+//        localSDP = new SessionDescription(ANSWER, sessionDescription.description);
+//
+//        peerConnection.setLocalDescription(new SdpObserver() {
+//@Override
+//public void onCreateSuccess(SessionDescription sessionDescription) {
+//
+//        }
+//
+//@Override
+//public void onSetSuccess() {
+//        Log.d(TAG, "(SUCCESS)[SET_LOCAL_DESCRIPTION] SDP from create answer API set as local's local description");
+////
+//        JSONObject message = new JSONObject();
+//        try {
+//        message.put("type", "answer");
+//        message.put("sdp", sessionDescription.description);
+//        mSocket.emit("sdp", message);
+//        } catch (JSONException e) {
+//        e.printStackTrace();
+//        }
+//        }
+//
+//@Override
+//public void onCreateFailure(String s) {
+//        Log.d(TAG, "(FAILURE)[SET_LOCAL_DESCRIPTION]SDP from create answer API set as local's local description");
+//
+//        }
+//
+//@Override
+//public void onSetFailure(String s) {
+//        Log.d(TAG, "(FAILURE)[SET_LOCAL_DESCRIPTION]SDP from create answer API set as local's local description");
+//
+//        }
+//        }, localSDP);
+//        }
+//
+//@Override
+//public void onSetSuccess() {
+//
+//
+//
+//        }
+//
+//@Override
+//public void onCreateFailure(String s) {
+//        Log.d(TAG, "(FAILURE)[CREATEANSWER] Answer Created based on offer");
+//
+//        }
+//
+//@Override
+//public void onSetFailure(String s) {
+//        Log.d(TAG, "(FAILURE)[CREATEANSWER] Answer Created based on offer");
+//
+//        }
+//        }, new MediaConstraints() );
+//
+//
+//
+//        }
+//
+//@Override
+//public void onCreateFailure(String s) {
+//        Log.d(TAG, "(FAILURE)[SET_REMOTE_DESCRIPTION] Answer to Offer from Remote Initiated");
+//
+//        }
+//
+//@Override
+//public void onSetFailure(String s) {
+//        Log.d(TAG, "(FAILURE)[SET_REMOTE_DESCRIPTION] Answer to Offer from Remote Initiated");
+//
+//        }
+//        } , remoteSDP);
+//
+//        } else {
+//        // set sdp as remote description (ANSWER), not implemented yet
+//        return;
+//        }
+//
+//
+//
+//        } catch (JSONException e) {
+//        e.printStackTrace();
+//        };
+//
+//
+//        });

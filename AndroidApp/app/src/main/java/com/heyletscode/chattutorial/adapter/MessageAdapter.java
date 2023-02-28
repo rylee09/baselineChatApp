@@ -6,6 +6,7 @@ import android.media.MediaPlayer;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.Base64;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -229,7 +230,10 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
                 } else if (message.has("image")) {
 
+
+
                     SentImageHolder imageHolder = (SentImageHolder) holder;
+
                     Bitmap bitmap = getBitmapFromString(message.getString("image"));
 
                     imageHolder.imageView.setImageBitmap(bitmap);
@@ -438,8 +442,10 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
     }
 
-    private Bitmap getBitmapFromString(String image) {
 
+
+    private Bitmap getBitmapFromString(String image) {
+//        Log.d("adapter", "getBitmapFromString: " + image);
         byte[] bytes = Base64.decode(image, Base64.DEFAULT);
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
     }
