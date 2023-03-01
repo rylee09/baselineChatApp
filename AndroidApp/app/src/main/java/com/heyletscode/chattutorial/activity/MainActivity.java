@@ -76,13 +76,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 //        setContentView(R.layout.activity_main);
-        setContentView(R.layout.friend_list);
 
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED)
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
-
+        Log.d(TAG, "onCreate: inside mainactivity");
 //        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
 //                != PackageManager.PERMISSION_GRANTED)
 //            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 10);
@@ -90,7 +85,12 @@ public class MainActivity extends AppCompatActivity {
 //        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
 //                != PackageManager.PERMISSION_GRANTED)
 //            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 10);
-
+        if (android.os.Build.VERSION.SDK_INT > 9)
+        {
+            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+            StrictMode.setThreadPolicy(policy);
+        }
+        
         Intent intent = getIntent();
         username = intent.getStringExtra("username");
         ip = intent.getStringExtra("ip");
@@ -100,6 +100,18 @@ public class MainActivity extends AppCompatActivity {
 //        Log.d(TAG, friendList);
 
         String baseUrl = protocol + "://" + ip + ":" + port;
+        Log.d(TAG, "username: " + username);
+        Log.d(TAG, "ip: " + ip);
+        Log.d(TAG, "port: " + port);
+        Log.d(TAG, "protocol: " + protocol);
+        Log.d(TAG, "friendList: " + friendList);
+
+        setContentView(R.layout.friend_list);
+
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED)
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
 
         httpClient = HttpClient.getInstance(baseUrl);
 
@@ -108,11 +120,7 @@ public class MainActivity extends AppCompatActivity {
 //            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
 
 
-        if (android.os.Build.VERSION.SDK_INT > 9)
-        {
-            StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-            StrictMode.setThreadPolicy(policy);
-        }
+
 
 
 

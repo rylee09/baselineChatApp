@@ -179,6 +179,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private int IMAGE_REQUEST_ID = 1;
 
     private static final int REQUEST_IMAGE_CAPTURE = 2;
+
+    private static final int REQUEST_CODE_VIDEO_CAPTURE = 3;
+
     private MessageAdapter messageAdapter;
 
 
@@ -230,11 +233,21 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     private  ByteArrayOutputStream outputStream = null;
 
+    private boolean requestSent = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+
+        Intent intent = getIntent();
+        other = intent.getStringExtra("other");
+        you = intent.getStringExtra("you");
+        roomId = intent.getStringExtra("roomId");
+
         setContentView(R.layout.activity_chat);
+
+
 
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -242,11 +255,6 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 10);
 
         cameraPermission();
-
-        Intent intent = getIntent();
-        other = intent.getStringExtra("other");
-        you = intent.getStringExtra("you");
-        roomId = intent.getStringExtra("roomId");
 
         // get existing socket connection
         mSocket = SocketManager.getInstance().getSocket();
@@ -533,12 +541,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 // Create a new ByteArrayOutputStream for each image
                 outputStream = new ByteArrayOutputStream();
             }
-            ;
 
-//            String bytes = s.toString();
-//            Log.d(TAG, "bytes: " + bytes);
-//            String message = new String(myBytes, Charset.forName("UTF-8"));
-//            Log.d(TAG, "message123: " + message);
 
             if (Objects.equals(size,-1)) {
                 try {
@@ -567,7 +570,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                 outputStream.write(buffer.array(),buffer.position(),buffer.remaining());
 //                Log.d(TAG, "size: " + outputStream.size() );
                 offset += CHUNK_SIZE;
-//                Log.d(TAG, "offset: " + offset );
+
+                Log.d(TAG, "offset:size " + offset + "-" + size );
 
                 if (offset >= size) {
 
@@ -593,9 +597,13 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                     jsonObject.put("image", base64Image);
                     jsonObject.put("time", datetime);
                     jsonObject.put("isSent", false);
-            //                                    mSocket.emit("send_image",jsonObject.toString());
+
+                    } catch (JSONException e) {
+                    e.printStackTrace();
+                    }
 
 
+                    if (!requestSent) {
                         JSONObject json = new JSONObject();
                         try {
                             json.put("roomId",chatRoomID);
@@ -621,13 +629,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                             }
                         });
 
-
-
-
-                    } catch (JSONException e) {
-                    e.printStackTrace();
+                        requestSent =true;
                     }
-
 
 
                     runOnUiThread(new Runnable() {
@@ -640,15 +643,15 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
-                            outputStream.reset();
-                            offset = 0;
-                            size = -1;
+
 
 
                         }
                     });
 
-
+                    outputStream.reset();
+                    offset = 0;
+                    size = -1;
                 }
 //
             }
