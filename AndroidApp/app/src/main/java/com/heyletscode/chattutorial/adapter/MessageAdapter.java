@@ -3,16 +3,18 @@ package com.heyletscode.chattutorial.adapter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.Base64;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.MediaController;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.VideoView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -35,14 +37,22 @@ public class MessageAdapter extends RecyclerView.Adapter {
     private static final int TYPE_IMAGE_RECEIVED = 3;
     private static final int TYPE_AUDIO_SENT = 4;
     private static final int TYPE_AUDIO_RECEIVED = 5;
+    private static final int TYPE_VIDEO_SENT = 6;
 
     private MediaPlayer mPlayer = new MediaPlayer();
+
+
 
     private LayoutInflater inflater;
     private List<JSONObject> messages = new ArrayList<>();
 
-    public MessageAdapter (LayoutInflater inflater) {
+    private String videoPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/myvideo.mp4";
+
+
+    public MessageAdapter (LayoutInflater inflater ) {
+
         this.inflater = inflater;
+
     }
 
     private class SentMessageHolder extends RecyclerView.ViewHolder {
@@ -84,6 +94,28 @@ public class MessageAdapter extends RecyclerView.Adapter {
             playBtn = itemView.findViewById(R.id.playBtn);
             pauseBtn = itemView.findViewById(R.id.pauseBtn);
             seekBar = itemView.findViewById(R.id.seekbar);
+
+            nameTxt = itemView.findViewById(R.id.sentNameTxt);
+            timeTxt = itemView.findViewById(R.id.sentDateTxt);
+
+
+        }
+    }
+
+    private class SentVideoHolder extends RecyclerView.ViewHolder {
+        VideoView videoView;
+
+        MediaController mediaController;
+
+        TextView nameTxt, timeTxt;
+
+        public SentVideoHolder(@NonNull View itemView) {
+            super(itemView);
+
+            videoView = itemView.findViewById(R.id.sentVideoView);
+            mediaController = new MediaController(itemView.getContext());
+            videoView.setMediaController(mediaController);
+            mediaController.setAnchorView(videoView);
 
             nameTxt = itemView.findViewById(R.id.sentNameTxt);
             timeTxt = itemView.findViewById(R.id.sentDateTxt);
@@ -152,8 +184,10 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     return TYPE_MESSAGE_SENT;
                 else if (message.has("image"))
                     return TYPE_IMAGE_SENT;
-                else
+                else if (message.has("audio"))
                     return TYPE_AUDIO_SENT;
+                else if (message.has("video"))
+                    return TYPE_VIDEO_SENT;
 
             } else {
 
@@ -207,6 +241,10 @@ public class MessageAdapter extends RecyclerView.Adapter {
                 view = inflater.inflate(R.layout.item_received_audio, parent, false);
                 return new ReceivedAudioHolder(view);
 
+            case TYPE_VIDEO_SENT:
+
+                view = inflater.inflate(R.layout.item_sent_video, parent, false);
+                return new SentVideoHolder(view);
         }
 
         return null;
@@ -240,7 +278,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     imageHolder.nameTxt.setText(message.getString("name"));
                     imageHolder.timeTxt.setText(message.getString("time"));
 
-                } else {
+                } else if (message.has("audio")) {
                     SentAudioHolder audioHolder = (SentAudioHolder) holder;
                     audioHolder.playBtn.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
@@ -255,7 +293,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
                             // testing
 //                        mPlayer.setDataSource(wavObj.getPath("final_record.wav"));
 
-                            mPlayer.setDataSource((String) message.get("audioPath"));
+                            mPlayer.setDataSource((String) message.get("audio"));
                             mPlayer.prepare();
                             mPlayer.start();
                             System.out.println("max duration of recording is: " + mPlayer.getDuration());
@@ -330,6 +368,20 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
 
 
+                } else if (message.has("video")) {
+                    SentVideoHolder videoHolder = (SentVideoHolder) holder;
+                    // add in dynamic videopath
+                    videoHolder.videoView.setVideoPath(message.getString("video"));
+//                    videoHolder.videoView.setVideoURI(Uri.parse(message.getString("video")));
+                    videoHolder.nameTxt.setText(message.getString("name"));
+                    videoHolder.timeTxt.setText(message.getString("time"));
+
+
+
+//
+//
+//
+//                    videoHolder.videoView.start();
                 }
 
             } else {
@@ -350,7 +402,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
                     imageHolder.nameTxt.setText(message.getString("name"));
                     imageHolder.timeTxt.setText(message.getString("time"));
 
-                } else {
+                } else if (message.has("audio")){
                     ReceivedAudioHolder audioHolder = (ReceivedAudioHolder) holder;
                     audioHolder.playBtn.setImageResource(R.drawable.ic_baseline_play_circle_outline_24);
                     audioHolder.nameTxt.setText(message.getString("name"));
@@ -367,7 +419,7 @@ public class MessageAdapter extends RecyclerView.Adapter {
                         // testing
 //                        mPlayer.setDataSource(wavObj.getPath("final_record.wav"));
 
-                        mPlayer.setDataSource((String) message.get("audioPath"));
+                        mPlayer.setDataSource((String) message.get("audio"));
                         mPlayer.prepare();
 
 
@@ -459,5 +511,8 @@ public class MessageAdapter extends RecyclerView.Adapter {
         messages.add(jsonObject);
         notifyDataSetChanged();
     }
+
+
+
 
 }

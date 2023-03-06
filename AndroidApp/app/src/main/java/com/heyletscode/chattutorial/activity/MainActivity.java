@@ -1,8 +1,5 @@
 package com.heyletscode.chattutorial.activity;
 
-import static org.webrtc.SessionDescription.Type.ANSWER;
-import static org.webrtc.SessionDescription.Type.OFFER;
-
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
@@ -10,9 +7,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.net.TrafficStats;
 import android.os.Bundle;
 import android.os.StrictMode;
 import android.util.Log;
@@ -30,12 +24,8 @@ import org.json.JSONObject;
 import org.webrtc.*;
 
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 import io.socket.client.Socket;
 
@@ -600,7 +590,7 @@ public class MainActivity extends AppCompatActivity {
                 String roomId = (String) jsonList.get(i).get("room_id");
                 String friendName = (String) jsonList.get(i).get("username");
                 mSocket.emit("join_room",roomId);
-                friends.add(new Friend(friendName, roomId, username));
+                friends.add(new Friend(friendName, roomId, username,baseUrl));
 
 
             } catch (JSONException e) {

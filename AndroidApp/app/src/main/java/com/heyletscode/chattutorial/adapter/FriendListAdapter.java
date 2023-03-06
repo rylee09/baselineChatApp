@@ -39,6 +39,7 @@ public class FriendListAdapter extends ArrayAdapter<Friend> {
         String other = friend.getFriend();
         String currentRoomId = friend.getRoomId();
         String you = friend.getYou();
+        String baseUrl = friend.getBaseUrl();
 //        SocketConnection socketConnection = friend.getSocket();
 
 
@@ -54,6 +55,7 @@ public class FriendListAdapter extends ArrayAdapter<Friend> {
                 intent.putExtra("other", other);
                 intent.putExtra("roomId", currentRoomId);
                 intent.putExtra("you", you);
+                intent.putExtra("baseUrl", baseUrl);
 
 //                intent.putExtra("socketConnection", socketConnection);
 //                intent.putExtra("friendName", friend.getName());

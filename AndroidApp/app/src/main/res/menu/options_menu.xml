@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/takePicture"
+        android:icon="@drawable/ic_baseline_photo_camera_24"
+        android:title="Camera Picture" />
+
+    <item
+        android:id="@+id/takeVideo"
+        android:title="Video" />
+
+    <item
+        android:id="@+id/gallery"
+        android:title="Gallery" />
+
+
+    <item
+        android:id="@+id/cancel_option"
+        android:icon="@drawable/ic_baseline_pause_circle_outline_24"
+        android:menuCategory="secondary"
+        android:title="Cancel" />
+</menu>

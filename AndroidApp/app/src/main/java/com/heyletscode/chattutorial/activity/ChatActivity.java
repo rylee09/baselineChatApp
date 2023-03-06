@@ -3,14 +3,12 @@ package com.heyletscode.chattutorial.activity;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 
 
-import static org.webrtc.SessionDescription.Type.ANSWER;
-import static org.webrtc.SessionDescription.Type.OFFER;
-
 import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.Camera;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.Build;
@@ -18,6 +16,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.provider.MediaStore;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.widget.Button;
 
 
@@ -34,7 +34,11 @@ import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.PopupMenu;
+import android.widget.RelativeLayout;
 import android.widget.RemoteViews;
 import android.widget.SeekBar;
 import android.widget.Toast;
@@ -52,13 +56,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.webrtc.DataChannel;
-import org.webrtc.IceCandidate;
-import org.webrtc.MediaConstraints;
-import org.webrtc.MediaStream;
 import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.RtpReceiver;
-import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
 
 import java.io.ByteArrayOutputStream;
@@ -67,16 +66,16 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Locale;
 import java.util.Date;
 
@@ -112,8 +111,6 @@ import com.heyletscode.chattutorial.util.HttpClient;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 //
 //import static android.Manifest.permission.RECORD_AUDIO;
@@ -164,9 +161,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private EditText messageEdit;
 
     private View sendBtn;
-    private ImageView pickImgBtn;
     //    private FrameLayout cameraPreview;
-    private ImageView pickMicBtn, pickCloseMicBtn, playBtn;
+    private ImageView pickMicBtn, pickCloseMicBtn, pickMoreBtn, playBtn;
     private ImageView pickCameraBtn;
     private Button pickVideoBtn;
     private SeekBar seekBar;
@@ -207,6 +203,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     private String you;
 
     private String roomId;
+    private String baseUrl;
     private Socket mSocket;
 
     private int notificationId = 0;
@@ -229,11 +226,28 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
     private String sender;
 
+
     private byte[] imageBytes;
 
     private  ByteArrayOutputStream outputStream = null;
 
     private boolean requestSent = false;
+
+    private String videoPath;
+
+    private String id;
+
+
+    private SurfaceHolder surfaceHolder;
+
+    private Camera camera;
+
+    private SurfaceView surfaceView;
+
+    private ImageButton vidRecBtn;
+
+    private ImageButton vidStopRecBtn;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -244,6 +258,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         other = intent.getStringExtra("other");
         you = intent.getStringExtra("you");
         roomId = intent.getStringExtra("roomId");
+        baseUrl = intent.getStringExtra("baseUrl");
 
         setContentView(R.layout.activity_chat);
 
@@ -330,6 +345,18 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
                                     }
 
                                     jsonObject.put("image", base64String);
+                                } else if (dbMessage[j].contains("audio-")) {
+                                    wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
+                                    String fileName = dbMessage[j].replace("audio-","");
+                                    jsonObject.put("audio", wavObj.getPath(fileName));
+
+
+                                } else if (dbMessage[j].contains("video=")){
+                                    String fileName = dbMessage[j].replace("video=","");
+                                    String newPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/" + fileName;
+                                    jsonObject.put("video", newPath);
+
+
                                 } else {
                                     jsonObject.put("message", dbMessage[j]);
                                 }
@@ -429,9 +456,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         } else {
 
             sendBtn.setVisibility(View.VISIBLE);
-            pickImgBtn.setVisibility(View.INVISIBLE);
+            pickMoreBtn.setVisibility(View.INVISIBLE);
             pickMicBtn.setVisibility(View.INVISIBLE);
-            pickCameraBtn.setVisibility(View.INVISIBLE);
+//            pickCameraBtn.setVisibility(View.INVISIBLE);
         }
 
     }
@@ -442,9 +469,9 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         messageEdit.setText("");
         sendBtn.setVisibility(View.INVISIBLE);
-        pickImgBtn.setVisibility(View.VISIBLE);
+        pickMoreBtn.setVisibility(View.VISIBLE);
         pickMicBtn.setVisibility(View.VISIBLE);
-        pickCameraBtn.setVisibility(View.VISIBLE);
+//        pickCameraBtn.setVisibility(View.VISIBLE);
 
         messageEdit.addTextChangedListener(this);
 
@@ -749,7 +776,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 //                    String path = null;
                     try {
                         json = new JSONObject(s);
-                        base64 = json.getString("audioB64Str");
+                        base64 = json.getString("audio");
                         name = json.getString("senderName");
                         time = json.getString("time");
                         id = json.getString("id");
@@ -816,10 +843,10 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         messageEdit = findViewById(R.id.messageEdit);
         sendBtn = findViewById(R.id.sendBtn);
-        pickImgBtn = findViewById(R.id.pickImgBtn);
+        pickMoreBtn = findViewById(R.id.pickMoreBtn);
 
 //        cameraPreview = findViewById(R.id.camera_preview);
-        pickCameraBtn = findViewById(R.id.cameraBtn);
+//        pickCameraBtn = findViewById(R.id.cameraBtn);
         pickMicBtn = findViewById(R.id.micBtn);
         pickCloseMicBtn = findViewById(R.id.closeMicBtn);
 
@@ -840,8 +867,65 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
         messageEdit.addTextChangedListener(this);
 
 
-        pickCameraBtn.setOnClickListener(v -> {
-            dispatchTakePictureIntent();
+        pickMoreBtn.setOnClickListener(v -> {
+            Log.d(TAG, "clicked on popupmenu");
+            PopupMenu popup = new PopupMenu(ChatActivity.this,v );
+            popup.getMenuInflater().inflate(R.menu.options_menu, popup.getMenu());
+
+            popup.setOnMenuItemClickListener(menuItem -> {
+                switch (menuItem.getItemId()) {
+                    case R.id.takePicture:
+                        dispatchTakePictureIntent();
+                        Log.d(TAG, "open take picture feature");
+                        return true;
+                    case R.id.takeVideo:
+                        Log.d(TAG, "open take video feature");
+                        Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+
+                        long currentTime = System.currentTimeMillis();
+                        SecureRandom secureRandom = new SecureRandom();
+                        byte[] randomNumber = new byte[8];
+                        secureRandom.nextBytes(randomNumber);
+                        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                        bb.putLong(currentTime);
+                        bb.put(randomNumber);
+                        UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+                        id = uniqueId.toString();
+
+                        videoPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/" + id + ".mp4";
+                        Uri videoUri = Uri.fromFile(new File(videoPath));
+                        intent.putExtra(MediaStore.EXTRA_OUTPUT, videoUri);
+//                        MediaStore.EXTRA_MEDIA_TITLE
+                        startActivityForResult(intent, REQUEST_CODE_VIDEO_CAPTURE);
+
+
+
+
+
+
+
+                        return true;
+                    case R.id.gallery:
+                        Log.d(TAG, "open gallery feature");
+
+                        Intent galleryIntent = new Intent(Intent.ACTION_GET_CONTENT);
+                        galleryIntent.setType("image/*");
+
+                        startActivityForResult(Intent.createChooser(galleryIntent, "Pick image"),
+                                IMAGE_REQUEST_ID);
+
+                        return true;
+                    case R.id.cancel_option:
+                        Log.d(TAG, "close popup");
+                        popup.dismiss();
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+            popup.show();
+
+//            dispatchTakePictureIntent();
         });
 
 
@@ -903,16 +987,16 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
         });
 
-        // NOT
-        pickImgBtn.setOnClickListener(v -> {
-
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.setType("image/*");
-
-            startActivityForResult(Intent.createChooser(intent, "Pick image"),
-                    IMAGE_REQUEST_ID);
-
-        });
+        // To reuse for selecting from gallery
+//        pickMoreBtn.setOnClickListener(v -> {
+//
+//            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+//            intent.setType("image/*");
+//
+//            startActivityForResult(Intent.createChooser(intent, "Pick image"),
+//                    IMAGE_REQUEST_ID);
+//
+//        });
 
 
         wavClass wavObj = new wavClass(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath());
@@ -935,41 +1019,41 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
 
         });
+
+        pickCloseMicBtn.setOnClickListener(v -> {
+
+
+            Toast.makeText(getApplicationContext(), "Recording Finished", Toast.LENGTH_SHORT).show();
+
+            try{
+
+                long currentTime = System.currentTimeMillis();
+                SecureRandom secureRandom = new SecureRandom();
+                byte[] randomNumber = new byte[8];
+                secureRandom.nextBytes(randomNumber);
+                ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+                bb.putLong(currentTime);
+                bb.put(randomNumber);
+                UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+                String id = uniqueId.toString();
+
+                wavObj.stopRecording(id);
 //
-//        pickCloseMicBtn.setOnClickListener(v -> {
-//
-//
-//            Toast.makeText(getApplicationContext(), "Recording Finished", Toast.LENGTH_SHORT).show();
-//
-//            try{
-//
-//                long currentTime = System.currentTimeMillis();
-//                SecureRandom secureRandom = new SecureRandom();
-//                byte[] randomNumber = new byte[8];
-//                secureRandom.nextBytes(randomNumber);
-//                ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-//                bb.putLong(currentTime);
-//                bb.put(randomNumber);
-//                UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
-//                String id = uniqueId.toString();
-//
-//                wavObj.stopRecording(id);
-////
-//                pickMicBtn.setVisibility(View.VISIBLE);
-//                pickCloseMicBtn.setVisibility(View.INVISIBLE);
-//
-//
-//                sendAudio(wavObj,id);
-//
-//
-//
-//
-//                Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
-//
-//        });
+                pickMicBtn.setVisibility(View.VISIBLE);
+                pickCloseMicBtn.setVisibility(View.INVISIBLE);
+
+
+                sendAudio(wavObj,id);
+
+
+
+
+                Toast.makeText(this, "Replaying Recording", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+        });
 
     }
 
@@ -1042,6 +1126,21 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             }
         }
 
+        if (requestCode == REQUEST_CODE_VIDEO_CAPTURE && resultCode == RESULT_OK) {
+            // Video captured successfully
+
+            Log.d(TAG, "video captured successfully");
+            try {
+                sendVideo(videoPath, id);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+
+        }
+
     }
 
     private void sendImageToWeb(Bitmap bitmap, Socket socket) {
@@ -1082,67 +1181,178 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     }
 
 
-//    private void sendAudio(wavClass wavObj, String idWav) throws IOException {
-//
-//        File file = new File(wavObj.getPath(idWav + ".wav"));
-//
-//        long currentTime = System.currentTimeMillis();
-//        SecureRandom secureRandom = new SecureRandom();
-//        byte[] randomNumber = new byte[8];
-//        secureRandom.nextBytes(randomNumber);
-//        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-//        bb.putLong(currentTime);
-//        bb.put(randomNumber);
-//        UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
-//        String id = uniqueId.toString();
-//
-////        "http://172.20.10.2:3333/echo/uploads"
-//
-//        URL url = new URL(protocol + "://" + ip + ":" + port + "/echo/uploads");
-//        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-//        connection.setRequestMethod("POST");
-//        connection.setDoOutput(true);
-//        connection.setRequestProperty("Content-Type", "audio/wav");
-//        connection.setRequestProperty("id", id);
-//
-//        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-//            byte[] audioData = Files.readAllBytes(file.toPath());
-//
-//            OutputStream os = connection.getOutputStream();
-//            os.write(audioData);
-//            os.flush();
-//            os.close();
-//        }
-//
-//        int responseCode = connection.getResponseCode();
-//        System.out.println("Response Code: " + responseCode);
-//
-//        try {
-//            currTime = Calendar.getInstance().getTime();
-//            String format = "KK:mm";
-//            DateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-//            String datetime = simpleDateFormat.format(currTime);
-//
-//            JSONObject jsonObject = new JSONObject();
-//            jsonObject.put("name", username);
-//            jsonObject.put("id",id);
-//            jsonObject.put("audioPath", wavObj.getPath(idWav + ".wav"));
-//            jsonObject.put("time", datetime);
-////            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
-//            jsonObject.put("isSent", true);
+    private void sendVideo(String videoFilePath, String id) throws IOException, JSONException {
+
+        File file = new File(videoFilePath);
+
+        URL url = new URL(baseUrl + "/video/uploads");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "video/mp4");
+        connection.setRequestProperty("id", id);
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            byte[] audioData = Files.readAllBytes(file.toPath());
+
+            OutputStream os = connection.getOutputStream();
+            os.write(audioData);
+            os.flush();
+            os.close();
+        }
+
+        int responseCode = connection.getResponseCode();
+
+        if (responseCode == 200) {
+            // current date and time
+            Date date = new Date();
+            DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            String datetime = simpleDateFormat.format(date);
+
+            JSONObject json = new JSONObject();
+            json.put("roomId",roomId);
+            json.put("msg","video=" + id + ".mp4" );
+            json.put("timestamp",datetime);
+            json.put("sender",you);
+
+
+
+            RequestBody body = RequestBody.create(String.valueOf(json), MediaType.parse("application/json; charset=utf-8"));
+            httpClient.doPost("/checkExistence", body, new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    Log.d(TAG, "failed to save message");                    }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    Log.d(TAG, "successfully saved message");
+                }
+            });
+        }
+
+        System.out.println("Response Code: " + responseCode);
+
+
+        try {
+            Date date = new Date();
+            DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            String datetime = simpleDateFormat.format(date);
+
+            String newPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES) + "/" + id + ".mp4";
+
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("name", you);
+            jsonObject.put("id",id);
+            jsonObject.put("video", newPath );
+            jsonObject.put("time", datetime);
+//            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
+            jsonObject.put("isSent", true);
 //            mSocket.emit("send_audio", jsonObject.toString());
-//
-//            messageAdapter.addItem(jsonObject);
-//
-//            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
-//
-//        } catch (JSONException e) {
-//            e.printStackTrace();
-//        }
-//
-//
-//
-//    }
+
+            messageAdapter.addItem(jsonObject);
+
+            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
+
+
+    private void sendAudio(wavClass wavObj, String idWav) throws IOException, JSONException {
+
+        File file = new File(wavObj.getPath(idWav + ".wav"));
+
+        long currentTime = System.currentTimeMillis();
+        SecureRandom secureRandom = new SecureRandom();
+        byte[] randomNumber = new byte[8];
+        secureRandom.nextBytes(randomNumber);
+        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+        bb.putLong(currentTime);
+        bb.put(randomNumber);
+        UUID uniqueId = UUID.nameUUIDFromBytes(bb.array());
+        String id = uniqueId.toString();
+
+//        "http://172.20.10.2:3333/echo/uploads"
+        URL url = new URL(baseUrl + "/echo/uploads");
+
+//        URL url = new URL(protocol + "://" + ip + ":" + port + "/echo/uploads");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+        connection.setRequestProperty("Content-Type", "audio/wav");
+        connection.setRequestProperty("id", idWav);
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            byte[] audioData = Files.readAllBytes(file.toPath());
+
+            OutputStream os = connection.getOutputStream();
+            os.write(audioData);
+            os.flush();
+            os.close();
+        }
+
+        int responseCode = connection.getResponseCode();
+
+
+        if (responseCode == 200) {
+            // current date and time
+            Date date = new Date();
+            DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            String datetime = simpleDateFormat.format(date);
+
+            JSONObject json = new JSONObject();
+            json.put("roomId",roomId);
+            json.put("msg","audio-" + idWav + ".wav" );
+            json.put("timestamp",datetime);
+            json.put("sender",you);
+
+
+
+            RequestBody body = RequestBody.create(String.valueOf(json), MediaType.parse("application/json; charset=utf-8"));
+            httpClient.doPost("/checkExistence", body, new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    Log.d(TAG, "failed to save message");                    }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    Log.d(TAG, "successfully saved message");
+                }
+            });
+        }
+
+
+        System.out.println("Response Code: " + responseCode);
+
+        try {
+            Date date = new Date();
+            DateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+            String datetime = simpleDateFormat.format(date);
+
+            JSONObject jsonObject = new JSONObject();
+            jsonObject.put("name", you);
+            jsonObject.put("id",id);
+            jsonObject.put("audio", wavObj.getPath(idWav + ".wav"));
+            jsonObject.put("time", datetime);
+//            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
+            jsonObject.put("isSent", true);
+            mSocket.emit("send_audio", jsonObject.toString());
+
+            messageAdapter.addItem(jsonObject);
+
+            recyclerView.smoothScrollToPosition(messageAdapter.getItemCount() - 1);
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+
+
+    }
 
 
 
@@ -1228,11 +1438,25 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
     }
 
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
+
+    private void stopRecordingVideo() {
+        mRecorder.stop();
+        mRecorder.reset();
+        mRecorder.release();
+
+//        byte[] videoBytes = convertVideoToBytes(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getPath() + "/video.mp4");
+//        Log.d(TAG, "bytes: " + videoBytes);
+    }
 
 
 
 
-}
+
+    }
 
 
 
