@@ -485,6 +485,20 @@ public class MessageAdapter extends RecyclerView.Adapter {
 
 
 
+                } else if (message.has("video")) {
+                    SentVideoHolder videoHolder = (SentVideoHolder) holder;
+                    // add in dynamic videopath
+                    videoHolder.videoView.setVideoPath(message.getString("video"));
+//                    videoHolder.videoView.setVideoURI(Uri.parse(message.getString("video")));
+                    videoHolder.nameTxt.setText(message.getString("name"));
+                    videoHolder.timeTxt.setText(message.getString("time"));
+
+
+
+//
+//
+//
+//                    videoHolder.videoView.start();
                 }
 
             }

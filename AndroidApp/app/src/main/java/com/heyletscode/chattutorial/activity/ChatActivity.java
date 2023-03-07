@@ -1214,6 +1214,8 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             json.put("msg","video=" + id + ".mp4" );
             json.put("timestamp",datetime);
             json.put("sender",you);
+            mSocket.emit("video_broadcast_to_room", json.toString());
+
 
 
 
@@ -1230,7 +1232,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             });
         }
 
-        System.out.println("Response Code: " + responseCode);
+//        System.out.println("Response Code: " + responseCode);
 
 
         try {
@@ -1309,6 +1311,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             json.put("msg","audio-" + idWav + ".wav" );
             json.put("timestamp",datetime);
             json.put("sender",you);
+            mSocket.emit("audio_broadcast_to_room", json.toString());
 
 
 
@@ -1320,7 +1323,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
-                    Log.d(TAG, "successfully saved message");
+                    Log.d(TAG, "successfully saved audio");
                 }
             });
         }
@@ -1340,7 +1343,7 @@ public class ChatActivity extends AppCompatActivity implements TextWatcher {
             jsonObject.put("time", datetime);
 //            jsonObject.put("path",wavObj.getPath(idWav +".wav"));
             jsonObject.put("isSent", true);
-            mSocket.emit("send_audio", jsonObject.toString());
+//            mSocket.emit("send_audio", jsonObject.toString());
 
             messageAdapter.addItem(jsonObject);
 
